@@ -8,6 +8,33 @@ const applicationSchema = new mongoose.Schema({
         required: true
     },
 
+    // Feature: Group / Bulk Application
+    isGroupApplication: { type: Boolean, default: false },
+    groupName: String,
+    groupReferenceId: { type: String },
+
+    // Travel Details
+    travelDate: Date, // Arrival
+    returnDate: Date, // Departure
+
+    // Status Timeline
+    timeline: {
+        submittedAt: Date,
+        processingAt: Date, // Submission to Immigration
+        approvedAt: Date,
+        rejectedAt: Date,
+        deliveredAt: Date // E-Visa delivery
+    },
+
+    // Feature: Pricing Snapshot (Audit Trail)
+    pricingSnapshot: {
+        govtFee: Number,
+        serviceFee: Number,
+        taxAmount: Number,
+        totalAmount: Number,
+        currency: String
+    },
+
     // Applicant Details
     applicants: [{
         firstName: String,
@@ -43,16 +70,20 @@ const applicationSchema = new mongoose.Schema({
                 nationality: String,
                 gender: String
             },
-            confidence: Number, // OCR confidence score (0-100)
-            rawText: String, // Raw OCR extracted text
-            verified: { type: Boolean, default: false }, // Whether data was verified by user
+            confidence: Number,
+            rawText: String,
+            verified: { type: Boolean, default: false },
             extractedAt: Date
         },
+        // Individual Applicant Tracking
         status: {
             type: String,
-            enum: ['Pending', 'Processing', 'Approved', 'Rejected', 'More Info Required'],
+            enum: ['Pending', 'Submitted', 'In Embassy', 'Approved', 'Rejected', 'More Info Required'],
             default: 'Pending'
-        }
+        },
+        rejectionReason: String,
+        embassyRefNumber: String,
+        approvalFileUrl: String
     }],
 
     // Financials
@@ -60,19 +91,32 @@ const applicationSchema = new mongoose.Schema({
     currency: { type: String, default: 'INR' },
     paymentStatus: { type: String, enum: ['Paid', 'Pending', 'Failed'], default: 'Pending' },
 
-    // Tracking
+    // Status & Tracking
+    status: {
+        type: String,
+        enum: ['Pending', 'Submitted', 'Processing', 'Need More Info', 'Approved', 'Rejected', 'Partially Approved'],
+        default: 'Pending'
+    },
+
     applicationId: { type: String, unique: true }, // Custom ID e.g., TV-2025-0001
     adminNotes: String,
+
+    // Application Level Rejection/Approval
+    rejectionReason: String,
+    approvedVisaDocument: {
+        url: String, // Path to file
+        uploadedAt: Date,
+        originalName: String
+    },
 
 }, { timestamps: true });
 
 // Auto-generate readable Application ID
-applicationSchema.pre('save', async function (next) {
+applicationSchema.pre('save', async function () {
     if (!this.applicationId) {
         const count = await this.constructor.countDocuments();
         this.applicationId = `TV-${new Date().getFullYear()}-${(count + 1).toString().padStart(5, '0')}`;
     }
-    next();
 });
 
 const Application = mongoose.model('Application', applicationSchema);

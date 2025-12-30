@@ -8,7 +8,9 @@ const connectDB = require('./config/db');
 // Load env vars
 dotenv.config();
 
-// Connect to database
+// Check Env
+require('./utils/checkEnv')();
+
 // Connect to database
 connectDB();
 
@@ -27,12 +29,26 @@ const path = require('path');
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
-app.use('/api/auth', require('./routes/authRoutes'));
-app.use('/api/visa', require('./routes/visaRoutes'));
-app.use('/api/applications', require('./routes/applicationRoutes'));
-app.use('/api/wallet', require('./routes/walletRoutes'));
-app.use('/api/ocr', require('./routes/ocrRoutes'));
-app.use('/api/documents', require('./routes/documentRoutes'));
+// Routes
+const authRoutes = require('./routes/authRoutes');
+const visaRoutes = require('./routes/visaRoutes');
+const applicationRoutes = require('./routes/applicationRoutes');
+const walletRoutes = require('./routes/walletRoutes');
+const ocrRoutes = require('./routes/ocrRoutes');
+const documentRoutes = require('./routes/documentRoutes');
+const ticketRoutes = require('./routes/ticketRoutes');
+const countryRoutes = require('./routes/countryRoutes');
+
+app.use('/api/auth', authRoutes);
+app.use('/api/visa', visaRoutes);
+app.use('/api/applications', applicationRoutes);
+app.use('/api/wallet', walletRoutes);
+app.use('/api/ocr', ocrRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/countries', countryRoutes);
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/payment', require('./routes/paymentRoutes'));
 
 app.get('/', (req, res) => {
     res.send('API is running...');
@@ -56,3 +72,6 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`);
 });
+
+module.exports = app;
+// Force Restart

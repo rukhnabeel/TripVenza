@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const OTP = require('../models/OTP');
+const { sendEmail } = require('../utils/emailService');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -72,11 +73,14 @@ exports.registerUser = async (req, res) => {
             };
         }
 
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
         const user = await User.create({
             name,
             email,
             phone,
-            password,
+            password: hashedPassword,
             agencyName,
             agencyType,
             gstNumber,
@@ -87,7 +91,9 @@ exports.registerUser = async (req, res) => {
             documents,
             walletBalance: 0,
             kycStatus: 'Submitted',
-            kycSubmittedAt: currentDate
+            kycSubmittedAt: currentDate,
+            tier: 'Silver',
+            currency: 'INR'
         });
 
         if (user) {
@@ -96,6 +102,7 @@ exports.registerUser = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 role: user.role,
+                kycStatus: user.kycStatus,
                 token: generateToken(user._id),
             });
         } else {
@@ -117,13 +124,20 @@ exports.loginUser = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
+            if (!user.isActive) {
+                return res.status(403).json({ message: 'Account is deactivated. Please contact support.' });
+            }
             res.json({
                 user: {
                     _id: user._id,
                     name: user.name,
                     email: user.email,
                     role: user.role,
-                    walletBalance: user.walletBalance
+                    agencyName: user.agencyName, // Added for dynamic routing
+                    kycStatus: user.kycStatus,
+                    walletBalance: user.walletBalance,
+                    tier: user.tier,
+                    currency: user.currency
                 },
                 token: generateToken(user._id),
             });
@@ -131,6 +145,7 @@ exports.loginUser = async (req, res) => {
             res.status(401).json({ message: 'Invalid email or password' });
         }
     } catch (error) {
+        console.error('Login Error:', error);
         res.status(500).json({ message: error.message });
     }
 };
@@ -155,8 +170,29 @@ exports.sendOtp = async (req, res) => {
             { upsert: true, new: true, setDefaultsOnInsert: true }
         );
 
-        // MOCK SENDING - Log to console
-        console.log(`[MOCK OTP] Sending ${type} OTP to ${identifier}: ${otpCode}`);
+        if (type === 'email') {
+            const emailHtml = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563EB;">TripVenza Verification</h2>
+                    <p>Your verification code is:</p>
+                    <div style="background-color: #F3F4F6; padding: 15px; border-radius: 8px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #1F2937;">
+                        ${otpCode}
+                    </div>
+                    <p style="color: #6B7280; font-size: 14px; margin-top: 20px;">This code is valid for 5 minutes.</p>
+                </div>
+            `;
+
+            const emailSent = await sendEmail(identifier, 'Your Verification Code - TripVenza', emailHtml);
+
+            if (!emailSent) {
+                // If email fails (and no mock fallback in dev), we might want to error out or log it
+                console.warn('Email sending failed, but OTP generated for dev purposes.');
+            }
+            console.log(`[OTP] Email OTP for ${identifier}: ${otpCode}`); // Keep log for dev backup
+        } else {
+            // Mobile OTP (Mock for now)
+            console.log(`[OTP] Mobile OTP for ${identifier}: ${otpCode}`);
+        }
 
         res.json({ message: 'OTP sent successfully' });
     } catch (error) {
@@ -188,6 +224,56 @@ exports.verifyOtp = async (req, res) => {
         res.json({ message: 'Verification successful', verified: true });
     } catch (error) {
         console.error('Verify OTP Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Emergency Admin Reset
+// @route   GET /api/auth/reset-admin-force
+exports.emergencyResetAdmin = async (req, res) => {
+    const bcrypt = require('bcryptjs'); // Ensure bcrypt is available
+    try {
+        const email = 'admin@tripvenza.com';
+        const password = 'admin123';
+
+        await User.deleteOne({ email });
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        await User.create({
+            name: 'Super Admin',
+            email,
+            phone: '9999999999',
+            password: hashedPassword,
+            role: 'admin',
+            isActive: true,
+            kycStatus: 'Approved',
+            tier: 'Platinum',
+            address: { street: 'Admin HQ', city: 'Delhi', state: 'Delhi', zip: '110001', country: 'India' },
+            panNumber: 'ADMIN1234X'
+        });
+
+        console.log('--- EMERGENCY ADMIN RESET SUCCESSFUL ---');
+        res.json({ message: 'Admin reset successful. Login with admin@tripvenza.com / admin123' });
+    } catch (error) {
+        console.error('Emergency Reset Error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// @desc    Get current user profile
+// @route   GET /api/auth/me
+// @access  Private
+exports.getMe = async (req, res) => {
+    try {
+        const user = await User.findById(req.user._id).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        res.json(user);
+    } catch (error) {
+        console.error('Get Me Error:', error);
         res.status(500).json({ message: error.message });
     }
 };

@@ -9,8 +9,16 @@ const visaTypeSchema = new mongoose.Schema({
 
     // Fees
     govtFee: { type: Number, required: true },
-    serviceFee: { type: Number, required: true },
-    totalFee: { type: Number, required: true },
+    baseServiceFee: { type: Number, required: true },
+
+    // Feature: Dynamic Pricing
+    tieredServiceFees: {
+        silver: { type: Number },
+        gold: { type: Number },
+        platinum: { type: Number }
+    },
+
+    totalFee: { type: Number, required: true }, // Base Total (Govt + Base Service)
     currency: { type: String, default: 'INR' },
 
     // Requirements

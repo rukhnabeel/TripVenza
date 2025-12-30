@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Building, FileText, CheckCircle, ArrowRight, ArrowLeft, Upload, AlertCircle, Shield, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { User, Building, FileText, CheckCircle, ArrowRight, ArrowLeft, Upload, AlertCircle, Shield, ChevronDown, Eye, EyeOff, Plane, Check } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { loginSuccess } from '../store/slices/authSlice';
 import api from '../utils/api';
 import { indianData } from '../utils/indianData';
 import { countryCodes } from '../utils/countryCodes';
+import { slugify } from '../utils/helpers';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -50,16 +51,9 @@ const Register = () => {
     const states = Object.keys(indianData);
     const cities = formData.state ? indianData[formData.state] || [] : [];
 
-    const addressProofOptions = [
-        'Shop Establishment Certificate / Registration Certificate',
-        'Udyam Certificate (Along with Annexure Page)',
-        'GST Certificate with Address Mentioned (All 3 Pages Mandatory)',
-        'Electricity or Landline Bill (Not less than 3 months old)',
-        'Rent Agreement'
-    ];
     const getPasswordStrength = (pass) => {
         if (!pass) return null;
-        if (pass.length < 6) return { label: 'Weak (Too short)', color: 'text-red-500' };
+        if (pass.length < 6) return { label: 'Weak', color: 'text-red-500' };
 
         const hasUpper = /[A-Z]/.test(pass);
         const hasLower = /[a-z]/.test(pass);
@@ -67,9 +61,9 @@ const Register = () => {
         const hasSpecial = /[\W_]/.test(pass);
 
         if (hasUpper && hasLower && hasNum && hasSpecial) {
-            return { label: 'Strong Password', color: 'text-green-600' };
+            return { label: 'Strong', color: 'text-green-600' };
         }
-        return { label: 'Medium (Add Uppercase, Number & Special)', color: 'text-yellow-600' };
+        return { label: 'Medium', color: 'text-orange-500' };
     };
 
     const handleChange = (e) => {
@@ -79,7 +73,7 @@ const Register = () => {
             setFormData(prev => ({
                 ...prev,
                 state: value,
-                city: '' // Reset city when state changes
+                city: ''
             }));
         } else if (name === 'panNumber') {
             setFormData(prev => ({
@@ -103,13 +97,11 @@ const Register = () => {
     const handleFileChange = (e, fieldName) => {
         const file = e.target.files[0];
         if (file) {
-            // Validate file type (JPG, PDF)
             const allowedTypes = ['image/jpeg', 'image/jpg', 'application/pdf'];
             if (!allowedTypes.includes(file.type)) {
                 setError(`Invalid file type for ${fieldName}. Please upload JPG or PDF.`);
                 return;
             }
-            // Validate size (5MB)
             if (file.size > 5 * 1024 * 1024) {
                 setError(`File too large for ${fieldName}. Max 5MB allowed.`);
                 return;
@@ -132,8 +124,6 @@ const Register = () => {
     const handleSendOtp = async (type) => {
         const identifier = type === 'email' ? formData.email : formData.countryCode + formData.phone;
         if (!identifier) return setError(`Please enter valid ${type}`);
-
-        // Basic validation
         if (type === 'email' && !/\S+@\S+\.\S+/.test(identifier)) return setError('Invalid email format');
         if (type === 'phone' && formData.phone.length < 10) return setError('Invalid phone number');
 
@@ -142,7 +132,6 @@ const Register = () => {
             await api.post('/auth/send-otp', { identifier, type: type === 'phone' ? 'mobile' : 'email' });
             setOtpState(prev => ({ ...prev, [type + 'Sent']: true }));
             setError('');
-            // Ensure error is cleared
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to send OTP');
         } finally {
@@ -169,63 +158,19 @@ const Register = () => {
     };
 
     const nextStep = () => {
-        // Validation for Step 1 (Personal Info)
         if (step === 1) {
             if (!formData.name || !formData.email || !formData.phone || !formData.password || !formData.confirmPassword) {
                 setError('Please fill in all personal information fields.');
                 return;
             }
-            if (!otpState.emailVerified) {
-                setError('Please verify your Email Address before proceeding.');
-                return;
-            }
-            if (!otpState.phoneVerified) {
-                setError('Please verify your Mobile Number before proceeding.');
-                return;
-            }
-            if (formData.name.length <= 2) {
-                setError('Name must be at least 3 characters.');
-                return;
-            }
-            if (!/\S+@\S+\.\S+/.test(formData.email)) {
-                setError('Please enter a valid email address.');
-                return;
-            }
-            if (formData.phone.length < 10) {
-                setError('Phone number must be at least 10 digits.');
-                return;
-            }
-            if (formData.password.length < 6) {
-                setError('Password must be at least 6 characters.');
-                return;
-            }
-            // Strict password complexity check
-            if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{6,}$/.test(formData.password)) {
-                setError('Password must contain uppercase, lowercase, number and special character (e.g. Pass@123).');
-                return;
-            }
-
-            if (formData.password !== formData.confirmPassword) {
-                setError('Passwords do not match.');
-                return;
-            }
+            if (!otpState.emailVerified) { setError('Please verify your Email Address.'); return; }
+            if (!otpState.phoneVerified) { setError('Please verify your Mobile Number.'); return; }
+            if (formData.password !== formData.confirmPassword) { setError('Passwords do not match.'); return; }
         }
 
-        // Validation for Step 2 (Business Info)
         if (step === 2) {
-            if (!formData.agencyName) { setError("Agency Name is required"); return; }
-            if (formData.agencyName.length < 3) { setError("Agency Name must be at least 3 characters"); return; }
-            if (!/^[a-zA-Z0-9\s&.,_-]+$/.test(formData.agencyName)) { setError("Agency Name contains invalid characters"); return; }
-
-            if (!formData.agencyType) { setError("Agency Type is required"); return; }
-            if (!formData.panNumber) { setError("PAN Number is required"); return; }
-            if (!formData.street) { setError("Street Address is required"); return; }
-            if (!formData.state) { setError("State selection is required"); return; }
-            if (!formData.city) { setError("City selection is required"); return; }
-            if (!formData.zip) { setError("ZIP Code is required"); return; }
-
-            if (formData.panNumber.length !== 10) {
-                setError('PAN Number must be exactly 10 characters.');
+            if (!formData.agencyName || !formData.agencyType || !formData.panNumber || !formData.street || !formData.state || !formData.city || !formData.zip) {
+                setError('Please complete all business details.');
                 return;
             }
         }
@@ -240,656 +185,353 @@ const Register = () => {
         e.preventDefault();
         setError('');
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
-
-        if (!files.panCard) {
-            setError('PAN Card is mandatory for ID Proof');
-            return;
-        }
-        if (!files.aadhaarCard) {
-            setError('Latest Aadhaar Card (with QR) is mandatory for ID Proof');
-            return;
-        }
-        if (!files.addressProof) {
-            setError('Address Proof document is mandatory');
-            return;
-        }
+        if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
+        if (!files.panCard || !files.aadhaarCard || !files.addressProof) { setError('Please upload all mandatory documents'); return; }
 
         setLoading(true);
         try {
             const submitData = new FormData();
-
-            // Append text fields
             Object.keys(formData).forEach(key => {
                 if (key !== 'termsAccepted' && key !== 'countryCode') {
-                    if (key === 'street' || key === 'city' || key === 'state' || key === 'zip' || key === 'phone') {
-                        // Will handle separately
-                    } else {
+                    if (key !== 'street' && key !== 'city' && key !== 'state' && key !== 'zip' && key !== 'phone') {
                         submitData.append(key, formData[key]);
                     }
                 }
             });
-
-            // Handle Phone
             submitData.append('phone', formData.countryCode + formData.phone);
-
-            // Append Address object
-            const address = {
-                street: formData.street,
-                city: formData.city,
-                state: formData.state,
-                zip: formData.zip,
-                country: 'India'
-            };
+            const address = { street: formData.street, city: formData.city, state: formData.state, zip: formData.zip, country: 'India' };
             submitData.append('address', JSON.stringify(address));
 
-            // Append Files
             if (files.panCard) submitData.append('panCard', files.panCard);
             if (files.aadhaarCard) submitData.append('aadhaarCard', files.aadhaarCard);
             if (files.gstCertificate) submitData.append('gstCertificate', files.gstCertificate);
             if (files.addressProof) submitData.append('addressProof', files.addressProof);
 
-            const { data } = await api.post('/auth/register', submitData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
+            const { data } = await api.post('/auth/register', submitData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
-            // Auto login after registration
-            dispatch(loginSuccess({
-                user: {
-                    _id: data._id,
-                    name: data.name,
-                    email: data.email,
-                    role: data.role,
-                    walletBalance: 0
-                },
-                token: data.token
-            }));
-
-            navigate('/dashboard');
+            dispatch(loginSuccess({ user: { ...data, walletBalance: 0 }, token: data.token }));
+            navigate(`/${slugify(data.agencyName || data.name)}/dashboard`);
         } catch (err) {
-            console.error('Registration failed:', err);
-            setError(err.response?.data?.message || 'Registration failed. Please check your inputs.');
+            setError(err.response?.data?.message || 'Registration failed.');
         } finally {
             setLoading(false);
         }
     };
 
     const steps = [
-        { id: 1, title: 'Personal Info', icon: User },
-        { id: 2, title: 'Business Info', icon: Building },
-        { id: 3, title: 'Documents', icon: Shield },
+        { id: 1, title: 'Personal', icon: User },
+        { id: 2, title: 'Business', icon: Building },
+        { id: 3, title: 'Docs', icon: Shield },
         { id: 4, title: 'Review', icon: CheckCircle },
     ];
 
     const FileUploadField = ({ label, name, required = false, accept = ".jpg,.jpeg,.pdf", helpText }) => (
-        <div className="border border-dashed border-gray-300 rounded-lg p-3 hover:border-blue-500 transition-colors bg-gray-50/50">
-            <div className="flex justify-between items-start mb-1">
-                <label className="block text-xs font-semibold text-gray-700">
+        <div className="border border-dashed border-gray-300 rounded-xl p-4 hover:border-blue-500 transition-colors bg-gray-50/50 group">
+            <div className="flex justify-between items-start mb-2">
+                <label className="block text-sm font-semibold text-gray-700">
                     {label} {required && <span className="text-red-500">*</span>}
                 </label>
                 {files[name] && (
-                    <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full flex items-center">
-                        <CheckCircle size={10} className="mr-0.5" /> Added
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full flex items-center font-medium">
+                        <Check size={12} className="mr-1" /> Added
                     </span>
                 )}
             </div>
-            {helpText && <p className="text-[10px] text-gray-500 mb-2 leading-tight">{helpText}</p>}
-            <input
-                type="file"
-                name={name}
-                id={name}
-                accept={accept}
-                onChange={(e) => handleFileChange(e, name)}
-                className="hidden"
-            />
-            <label htmlFor={name} className="cursor-pointer flex items-center justify-center py-2 space-x-2 bg-white border border-gray-200 rounded hover:bg-gray-50 transition-colors">
-                <Upload className="text-blue-500" size={16} />
-                <span className="text-xs text-blue-600 font-medium">Click to upload</span>
+            <input type="file" name={name} id={name} accept={accept} onChange={(e) => handleFileChange(e, name)} className="hidden" />
+
+            <label htmlFor={name} className="cursor-pointer flex flex-col items-center justify-center py-4 bg-white border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-200 transition-all shadow-sm">
+                <Upload className="text-blue-500 mb-2" size={20} />
+                <span className="text-sm text-blue-600 font-medium">Click to upload document</span>
+                <span className="text-xs text-gray-400 mt-1">{helpText || "JPG or PDF, Max 5MB"}</span>
             </label>
+
             {files[name] && (
-                <div className="flex items-center justify-between mt-2 px-1 bg-gray-50 p-1.5 rounded border border-gray-100">
-                    <p className="text-[10px] text-gray-600 truncate max-w-[75%]">
-                        {files[name].name}
-                    </p>
-                    <button
-                        type="button"
-                        onClick={() => window.open(URL.createObjectURL(files[name]), '_blank')}
-                        className="text-[10px] text-blue-600 hover:text-blue-800 font-medium hover:underline"
-                    >
-                        View
-                    </button>
+                <div className=" mt-3 flex items-center p-2 bg-blue-50 rounded-lg border border-blue-100">
+                    <FileText size={16} className="text-blue-600 mr-2" />
+                    <p className="text-xs text-blue-900 truncate flex-1">{files[name].name}</p>
                 </div>
             )}
         </div>
     );
 
     return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center py-8 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-4xl w-full bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col md:flex-row h-auto md:h-[85vh]">
+        <div className="min-h-screen flex bg-gray-50/30 font-sans text-gray-900">
+            {/* Left Sidebar - Progress */}
+            <div className="hidden lg:flex lg:w-1/3 bg-blue-600 relative overflow-hidden flex-col p-12 justify-between text-white shadow-2xl z-10">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-blue-900/90 to-indigo-900/95"></div>
 
-                {/* Sidebar / Progress */}
-                <div className="bg-blue-600 p-6 md:w-1/3 text-white flex flex-col justify-between shrink-0">
-                    <div>
-                        <h2 className="text-xl font-bold mb-1">Partner Registration</h2>
-                        <p className="text-blue-100 text-xs mb-6">Join the fastest growing B2B visa platform.</p>
+                {/* Decorative Circles */}
+                <div className="absolute top-[-10%] left-[-10%] w-80 h-80 bg-blue-400/20 rounded-full blur-3xl animate-pulse-slow"></div>
 
-                        <div className="space-y-5">
-                            {steps.map((s) => (
-                                <div key={s.id} className="flex items-center space-x-3">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 
-                    ${step >= s.id ? 'bg-white text-blue-600 border-white' : 'border-blue-400 text-blue-100'}`}>
-                                        {step > s.id ? <CheckCircle size={16} /> : <s.icon size={16} />}
-                                    </div>
-                                    <span className={`font-medium text-sm ${step >= s.id ? 'text-white' : 'text-blue-200'}`}>
-                                        {s.title}
-                                    </span>
-                                </div>
-                            ))}
+                <div className="relative z-10">
+                    <div className="flex items-center gap-3 mb-12">
+                        <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
+                            <Plane size={24} className="text-white" />
                         </div>
+                        <span className="text-2xl font-bold tracking-tight font-display">TripVenza</span>
                     </div>
-                    <div className="mt-8">
-                        <p className="text-[10px] text-blue-200">Need help? Contact Support at <br /> support@tripvenza.com</p>
+
+                    <h2 className="text-4xl font-bold mb-4 font-display leading-tight">Partner With Us</h2>
+                    <p className="text-blue-100/80 text-base mb-12 max-w-xs leading-relaxed">Join thousands of travel agents growing with TripVenza. Create your account in 3 simple steps.</p>
+
+                    <div className="space-y-0">
+                        {steps.map((s, index) => (
+                            <div key={s.id} className="relative pl-12 pb-10 last:pb-0">
+                                {/* Connector Line */}
+                                {index !== steps.length - 1 && (
+                                    <div className={`absolute left-[19px] top-8 w-0.5 h-full -ml-px ${step > s.id ? 'bg-green-400' : 'bg-blue-800/50'}`}></div>
+                                )}
+
+                                <div className={`absolute left-0 top-0 w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 shadow-lg
+                                    ${step > s.id ? 'bg-green-500 border-green-500 text-white scale-100' :
+                                        step === s.id ? 'bg-white text-blue-900 border-white scale-110' : 'border-blue-700/50 bg-blue-900/30 text-blue-300/50'}`}>
+                                    {step > s.id ? <Check size={18} /> : <s.icon size={18} />}
+                                </div>
+
+                                <div>
+                                    <h4 className={`font-bold text-base ${step === s.id ? 'text-white' : 'text-blue-300/70'}`}>{s.title}</h4>
+                                    {step === s.id && <p className="text-xs text-blue-200 mt-1 animate-fade-in font-medium">Currently Editing</p>}
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* Form Area - Scrollable */}
-                <div className="p-6 md:w-2/3 md:overflow-y-auto custom-scrollbar">
-                    <form onSubmit={handleSubmit}>
-                        <AnimatePresence mode='wait'>
-                            {step === 1 && (
-                                <motion.div
-                                    key="step1"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-4"
-                                >
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Personal Information</h3>
-                                    <div className="grid grid-cols-1 gap-3">
+                <div className="relative z-10 text-xs text-blue-200/50 font-medium tracking-wide">
+                    © 2025 TripVenza Holidays. All rights reserved.
+                </div>
+            </div>
+
+            {/* Right Side - Form */}
+            <div className="w-full lg:w-2/3 flex flex-col h-screen overflow-hidden bg-gray-50/30">
+                {/* Mobile Header */}
+                <div className="lg:hidden p-4 border-b border-gray-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-20">
+                    <span className="font-bold flex items-center gap-2 font-display text-lg">
+                        <div className="p-1.5 bg-blue-600 rounded-lg">
+                            <Plane size={16} className="text-white" />
+                        </div>
+                        TripVenza
+                    </span>
+                    <div className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">Step {step}/4</div>
+                </div>
+                {/* Scrollable Form Content */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-12 custom-scrollbar">
+                    <div className="max-w-2xl mx-auto">
+                        <form onSubmit={handleSubmit}>
+                            <AnimatePresence mode='wait'>
+                                {/* STEP 1 */}
+                                {step === 1 && (
+                                    <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8 py-2">
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Full Name <span className="text-red-500">*</span></label>
-                                            <div className="relative">
-                                                <input type="text" name="name" required value={formData.name} onChange={handleChange}
-                                                    className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Hasmat Ali" />
-                                                {formData.name.length > 2 && (
-                                                    <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
-                                                )}
-                                            </div>
+                                            <h2 className="text-3xl font-bold text-gray-900 font-display">Personal Details</h2>
+                                            <p className="text-gray-500 mt-2 text-base">Let's get to know you first.</p>
                                         </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Email Address <span className="text-red-500">*</span></label>
-                                            <div className="flex space-x-2">
-                                                <div className="relative flex-1">
-                                                    <input
-                                                        type="email"
-                                                        name="email"
-                                                        required
-                                                        value={formData.email}
-                                                        onChange={handleChange}
-                                                        disabled={otpState.emailVerified || otpState.emailSent}
-                                                        className={`w-full pl-3 pr-10 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${otpState.emailVerified ? 'bg-green-50 border-green-200 text-green-700' : 'border-gray-300'}`}
-                                                        placeholder="name@company.com"
-                                                    />
-                                                    {otpState.emailVerified && (
-                                                        <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
+
+                                        <div className="space-y-6">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
+                                                <input type="text" name="name" required value={formData.name} onChange={handleChange}
+                                                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm" placeholder="e.g. Hasmat Ali" />
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                                                <div className="flex gap-3">
+                                                    <input type="email" name="email" required value={formData.email} onChange={handleChange} disabled={otpState.emailVerified}
+                                                        className={`flex-1 px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm ${otpState.emailVerified ? 'text-green-700 bg-green-50 border-green-200' : ''}`} placeholder="name@company.com" />
+                                                    {!otpState.emailVerified && (
+                                                        <button type="button" onClick={() => handleSendOtp('email')} disabled={!formData.email || otpState.emailSent}
+                                                            className="px-6 py-3.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all hover:shadow-lg shadow-blue-600/20 whitespace-nowrap disabled:opacity-50 disabled:shadow-none">
+                                                            {otpState.emailSent ? 'Verify OTP' : 'Send OTP'}
+                                                        </button>
                                                     )}
                                                 </div>
-                                                {!otpState.emailVerified && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSendOtp('email')}
-                                                        disabled={!formData.email || otpState.emailSent}
-                                                        className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${otpState.emailSent ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                                                    >
-                                                        {otpState.emailSent ? 'OTP Sent' : 'Verify Email'}
-                                                    </button>
+                                                {otpState.emailSent && !otpState.emailVerified && (
+                                                    <div className="mt-3 flex gap-3 animate-in fade-in slide-in-from-top-2">
+                                                        <input type="text" placeholder="Enter 6-digit OTP" value={otpState.emailOtp} onChange={(e) => setOtpState(prev => ({ ...prev, emailOtp: e.target.value }))} className="w-40 px-4 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none" maxLength={6} />
+                                                        <button type="button" onClick={() => handleVerifyOtp('email')} className="px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 hover:shadow-lg shadow-green-600/20 transition-all">Verify</button>
+                                                    </div>
                                                 )}
                                             </div>
-                                            {otpState.emailSent && !otpState.emailVerified && (
-                                                <div className="mt-2 flex space-x-2 items-center">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Enter Email OTP"
-                                                        value={otpState.emailOtp}
-                                                        onChange={(e) => setOtpState(prev => ({ ...prev, emailOtp: e.target.value }))}
-                                                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        maxLength={6}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleVerifyOtp('email')}
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700"
-                                                    >
-                                                        Confirm
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSendOtp('email')}
-                                                        className="text-xs text-blue-600 hover:underline"
-                                                    >
-                                                        Resend
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
 
-                                        {/* Custom Phone Input with Verify */}
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Phone Number <span className="text-red-500">*</span></label>
-                                            <div className="flex space-x-2">
-                                                <div className="relative flex flex-1">
-                                                    {/* Custom Dropdown Trigger */}
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowCountryDropdown(!showCountryDropdown)}
-                                                        disabled={otpState.phoneVerified || otpState.phoneSent}
-                                                        className="flex items-center space-x-1 pl-2 pr-1 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 hover:bg-gray-100 transition-colors w-28 disabled:opacity-70"
-                                                    >
-                                                        <img
-                                                            src={`https://flagcdn.com/w40/${selectedFlag.toLowerCase()}.png`}
-                                                            alt="flag"
-                                                            className="w-6 h-auto rounded-sm object-cover border border-gray-200"
-                                                        />
-                                                        <span className="text-sm text-gray-700 font-medium ml-1">{formData.countryCode}</span>
-                                                        <ChevronDown size={14} className="text-gray-500 ml-auto" />
-                                                    </button>
-
-                                                    {/* Custom Dropdown List */}
-                                                    {showCountryDropdown && (
-                                                        <>
-                                                            <div className="fixed inset-0 z-10" onClick={() => setShowCountryDropdown(false)}></div>
-                                                            <div className="absolute top-full left-0 mt-1 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-20 max-h-60 overflow-y-auto custom-scrollbar">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Mobile Number</label>
+                                                <div className="flex gap-3">
+                                                    <div className="relative w-32 shrink-0">
+                                                        <div className="w-full px-3 py-3.5 bg-white border border-gray-200 rounded-xl flex items-center justify-between cursor-pointer hover:border-blue-300/50 transition-colors shadow-sm" onClick={() => setShowCountryDropdown(!showCountryDropdown)}>
+                                                            <span className="flex items-center gap-2 text-sm font-bold text-gray-700">
+                                                                <img src={`https://flagcdn.com/w40/${selectedFlag.toLowerCase()}.png`} alt="flag" className="w-6 h-4 object-cover rounded-sm shadow-sm" />
+                                                                {formData.countryCode}
+                                                            </span>
+                                                            <ChevronDown size={14} className="text-gray-400" />
+                                                        </div>
+                                                        {showCountryDropdown && (
+                                                            <div className="absolute top-full left-0 mt-2 w-64 bg-white shadow-xl shadow-gray-200/50 rounded-xl z-30 max-h-60 overflow-y-auto border border-gray-100 py-2 animate-in fade-in zoom-in-95 duration-200">
                                                                 {countryCodes.map((item) => (
-                                                                    <button
-                                                                        key={item.country}
-                                                                        type="button"
-                                                                        onClick={() => handleCountrySelect(item)}
-                                                                        className="flex items-center w-full px-4 py-2 hover:bg-blue-50 text-left transition-colors border-b border-gray-50 last:border-0"
-                                                                    >
-                                                                        <img
-                                                                            src={`https://flagcdn.com/w40/${item.country.toLowerCase()}.png`}
-                                                                            alt={item.name}
-                                                                            className="w-6 h-auto mr-3 rounded-sm border border-gray-100"
-                                                                        />
-                                                                        <span className="text-sm text-gray-700 font-medium truncate flex-1">{item.name}</span>
-                                                                        <span className="text-xs text-gray-500 ml-2 font-mono whitespace-nowrap">{item.code}</span>
-                                                                    </button>
+                                                                    <div key={item.country} onClick={() => handleCountrySelect(item)} className="flex items-center px-4 py-2.5 hover:bg-blue-50 cursor-pointer transition-colors">
+                                                                        <span className="text-sm font-medium text-gray-700 flex-1">{item.name}</span>
+                                                                        <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">{item.code}</span>
+                                                                    </div>
                                                                 ))}
                                                             </div>
-                                                        </>
-                                                    )}
-
-                                                    <input
-                                                        type="tel"
-                                                        name="phone"
-                                                        required
-                                                        value={formData.phone}
-                                                        onChange={handleChange}
-                                                        disabled={otpState.phoneVerified || otpState.phoneSent}
-                                                        className={`w-full pl-3 pr-10 py-2 border rounded-r-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none ${otpState.phoneVerified ? 'bg-green-50 border-green-200 text-green-700' : 'border-gray-300'}`}
-                                                        placeholder="98765 43210"
-                                                    />
-                                                    {otpState.phoneVerified && (
-                                                        <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
+                                                        )}
+                                                    </div>
+                                                    <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} disabled={otpState.phoneVerified}
+                                                        className={`flex-1 px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm ${otpState.phoneVerified ? 'text-green-700 bg-green-50 border-green-200' : ''}`} placeholder="98765 43210" />
+                                                    {!otpState.phoneVerified && (
+                                                        <button type="button" onClick={() => handleSendOtp('phone')} disabled={!formData.phone || otpState.phoneSent}
+                                                            className="px-6 py-3.5 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all hover:shadow-lg shadow-blue-600/20 whitespace-nowrap disabled:opacity-50 disabled:shadow-none">
+                                                            {otpState.phoneSent ? 'Verify OTP' : 'Send OTP'}
+                                                        </button>
                                                     )}
                                                 </div>
-
-                                                {!otpState.phoneVerified && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSendOtp('phone')}
-                                                        disabled={!formData.phone || otpState.phoneSent}
-                                                        className={`px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${otpState.phoneSent ? 'bg-gray-100 text-gray-400' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
-                                                    >
-                                                        {otpState.phoneSent ? 'OTP Sent' : 'Verify Phone'}
-                                                    </button>
-                                                )}
-                                            </div>
-
-                                            {otpState.phoneSent && !otpState.phoneVerified && (
-                                                <div className="mt-2 flex space-x-2 items-center">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Enter Phone OTP"
-                                                        value={otpState.phoneOtp}
-                                                        onChange={(e) => setOtpState(prev => ({ ...prev, phoneOtp: e.target.value }))}
-                                                        className="w-32 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        maxLength={6}
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleVerifyOtp('phone')}
-                                                        className="px-4 py-2 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-700"
-                                                    >
-                                                        Confirm
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleSendOtp('phone')}
-                                                        className="text-xs text-blue-600 hover:underline"
-                                                    >
-                                                        Resend
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-700 mb-1">Password <span className="text-red-500">*</span></label>
-                                                <div className="relative">
-                                                    <input
-                                                        type={showPassword ? "text" : "password"}
-                                                        name="password"
-                                                        required
-                                                        value={formData.password}
-                                                        onChange={handleChange}
-                                                        className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        placeholder="••••••••"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowPassword(!showPassword)}
-                                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                                                    >
-                                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                    </button>
-                                                </div>
-                                                {formData.password && (
-                                                    <div className={`text-xs mt-1 flex items-center ${getPasswordStrength(formData.password).color}`}>
-                                                        {getPasswordStrength(formData.password).label === 'Strong Password' && <CheckCircle size={12} className="mr-1" />}
-                                                        {getPasswordStrength(formData.password).label}
+                                                {otpState.phoneSent && !otpState.phoneVerified && (
+                                                    <div className="mt-3 flex gap-3 animate-in fade-in slide-in-from-top-2">
+                                                        <input type="text" placeholder="Enter 6-digit OTP" value={otpState.phoneOtp} onChange={(e) => setOtpState(prev => ({ ...prev, phoneOtp: e.target.value }))} className="w-40 px-4 py-2 border border-blue-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-500 outline-none" maxLength={6} />
+                                                        <button type="button" onClick={() => handleVerifyOtp('phone')} className="px-5 py-2 bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 hover:shadow-lg shadow-green-600/20 transition-all">Verify</button>
                                                     </div>
                                                 )}
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-700 mb-1">Confirm Password <span className="text-red-500">*</span></label>
-                                                <div className="relative">
-                                                    <input
-                                                        type={showConfirmPassword ? "text" : "password"}
-                                                        name="confirmPassword"
-                                                        required
-                                                        value={formData.confirmPassword}
-                                                        onChange={handleChange}
-                                                        className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                                        placeholder="••••••••"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-                                                    >
-                                                        {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                                    </button>
-                                                </div>
-                                                {formData.confirmPassword && formData.confirmPassword === formData.password && (
-                                                    <div className="text-xs text-green-600 mt-1 flex items-center">
-                                                        <CheckCircle size={12} className="mr-1" /> Match
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {error && <div className="text-red-500 text-xs mt-2 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
-                                    <div className="flex justify-end mt-6">
-                                        <button type="button" onClick={nextStep} className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                                            Next Step <ArrowRight size={16} className="ml-2" />
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
 
-                            {step === 2 && (
-                                <motion.div
-                                    key="step2"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-4"
-                                >
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-3">Business Details</h3>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Agency Name <span className="text-red-500">*</span></label>
-                                            <div className="relative">
-                                                <input type="text" name="agencyName" required value={formData.agencyName} onChange={handleChange}
-                                                    className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="e.g. Global Travels" />
-                                                {formData.agencyName.length > 2 && (
-                                                    <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Agency Type</label>
-                                            <select name="agencyType" value={formData.agencyType} onChange={handleChange}
-                                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                                                <option>Travel Agency</option>
-                                                <option>Freelancer</option>
-                                                <option>Corporate</option>
-                                                <option>Tour Operator</option>
-                                                <option>Visa Consultant</option>
-                                            </select>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-700 mb-1">PAN Number <span className="text-red-500">*</span></label>
-                                                <div className="relative">
-                                                    <input type="text" name="panNumber" required value={formData.panNumber} onChange={handleChange}
-                                                        className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="ABCDE1234F" maxLength={10} />
-                                                    {formData.panNumber.length === 10 && (
-                                                        <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
-                                                    )}
+                                            <div className="grid grid-cols-2 gap-5">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                                                    <input type="password" name="password" required value={formData.password} onChange={handleChange}
+                                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm" placeholder="••••••••" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm</label>
+                                                    <input type="password" name="confirmPassword" required value={formData.confirmPassword} onChange={handleChange}
+                                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm" placeholder="••••••••" />
                                                 </div>
                                             </div>
-                                            <div>
-                                                <label className="block text-xs font-medium text-gray-700 mb-1">GST Number (Optional)</label>
-                                                <input type="text" name="gstNumber" value={formData.gstNumber} onChange={handleChange}
-                                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="GST Number" />
-                                            </div>
                                         </div>
+                                    </motion.div>
+                                )}
+
+                                {/* STEP 2 */}
+                                {step === 2 && (
+                                    <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8 py-2">
                                         <div>
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">Office Address <span className="text-red-500">*</span></label>
-                                            <div className="relative">
+                                            <h2 className="text-3xl font-bold text-gray-900 font-display">Business Details</h2>
+                                            <p className="text-gray-500 mt-2 text-base">Tell us about your agency.</p>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            <div className="grid grid-cols-2 gap-5">
+                                                <div className="col-span-2 md:col-span-1">
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Agency Name</label>
+                                                    <input type="text" name="agencyName" required value={formData.agencyName} onChange={handleChange}
+                                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm" placeholder="Global Travels" />
+                                                </div>
+                                                <div className="col-span-2 md:col-span-1">
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Agency Type</label>
+                                                    <select name="agencyType" value={formData.agencyType} onChange={handleChange} className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium shadow-sm cursor-pointer">
+                                                        <option>Travel Agency</option>
+                                                        <option>Freelancer</option>
+                                                        <option>Corporate</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-2 gap-5">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">PAN Number</label>
+                                                    <input type="text" name="panNumber" required value={formData.panNumber} onChange={handleChange} maxLength={10}
+                                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm uppercase placeholder:normal-case" placeholder="ABCDE1234F" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-2">GST (Optional)</label>
+                                                    <input type="text" name="gstNumber" value={formData.gstNumber} onChange={handleChange}
+                                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm uppercase placeholder:normal-case" placeholder="GSTIN" />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-2">Office Address</label>
                                                 <input type="text" name="street" required value={formData.street} onChange={handleChange}
-                                                    className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Street Address" />
-                                                {formData.street.length > 5 && (
-                                                    <CheckCircle className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-500" size={16} />
-                                                )}
+                                                    className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all duration-200 font-medium placeholder:text-gray-400 hover:border-blue-300/50 shadow-sm mb-4" placeholder="Street layout, Building" />
+
+                                                <div className="grid grid-cols-3 gap-4">
+                                                    <select name="state" value={formData.state} onChange={handleChange} className="w-full px-3 py-3.5 bg-white border border-gray-200 rounded-xl outline-none text-sm font-medium shadow-sm hover:border-blue-300/50 transition-all cursor-pointer">
+                                                        <option value="">State</option>
+                                                        {states.map(s => <option key={s} value={s}>{s}</option>)}
+                                                    </select>
+                                                    <select name="city" value={formData.city} onChange={handleChange} className="w-full px-3 py-3.5 bg-white border border-gray-200 rounded-xl outline-none text-sm font-medium shadow-sm hover:border-blue-300/50 transition-all cursor-pointer">
+                                                        <option value="">City</option>
+                                                        {cities.map(c => <option key={c} value={c}>{c}</option>)}
+                                                    </select>
+                                                    <input type="text" name="zip" value={formData.zip} onChange={handleChange} className="w-full px-3 py-3.5 bg-white border border-gray-200 rounded-xl outline-none text-sm font-medium shadow-sm hover:border-blue-300/50 transition-all placeholder:text-gray-400" placeholder="ZIP Code" />
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-2">
-                                            {/* State Dropdown */}
-                                            <div className="relative">
-                                                <select
-                                                    name="state"
-                                                    required
-                                                    value={formData.state}
-                                                    onChange={handleChange}
-                                                    className="w-full px-3 py-2 border rounded-lg text-sm outline-none bg-white appearance-none"
-                                                >
-                                                    <option value="">State</option>
-                                                    {states.map(state => (
-                                                        <option key={state} value={state}>{state}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                    </motion.div>
+                                )}
 
-                                            {/* City Dropdown - Dependent on State */}
-                                            <div className="relative">
-                                                <select
-                                                    name="city"
-                                                    required
-                                                    value={formData.city}
-                                                    onChange={handleChange}
-                                                    className="w-full px-3 py-2 border rounded-lg text-sm outline-none bg-white appearance-none"
-                                                    disabled={!formData.state}
-                                                >
-                                                    <option value="">City</option>
-                                                    {cities.map(city => (
-                                                        <option key={city} value={city}>{city}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
+                                {/* STEP 3 */}
+                                {step === 3 && (
+                                    <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-8 py-2">
+                                        <div>
+                                            <h2 className="text-3xl font-bold text-gray-900 font-display">Upload Documents</h2>
+                                            <p className="text-gray-500 mt-2 text-base">Verify your business identity.</p>
+                                        </div>
 
-                                            <div className="relative">
-                                                <input type="text" name="zip" required value={formData.zip} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm outline-none" placeholder="ZIP" />
-                                                {formData.zip.length >= 6 && (
-                                                    <CheckCircle className="absolute right-2 top-1/2 transform -translate-y-1/2 text-green-500" size={14} />
-                                                )}
+                                        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5 flex gap-4 items-start shadow-sm">
+                                            <div className="p-2 bg-blue-100 rounded-lg shrink-0">
+                                                <Shield className="text-blue-600" size={20} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-sm text-blue-900">Secure Upload</h4>
+                                                <p className="text-xs text-blue-700/80 mt-1 leading-relaxed">Your documents are encrypted and stored safely. We ensure bank-grade security for your KYC verification.</p>
                                             </div>
                                         </div>
-                                    </div>
-                                    {error && <div className="text-red-500 text-xs mt-2 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
-                                    <div className="flex justify-between mt-6">
-                                        <button type="button" onClick={prevStep} className="flex items-center px-6 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">
-                                            <ArrowLeft size={16} className="mr-2" /> Back
-                                        </button>
-                                        <button type="button" onClick={nextStep} className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                                            Next Step <ArrowRight size={16} className="ml-2" />
-                                        </button>
-                                    </div>
-                                </motion.div>
+
+                                        <div className="space-y-5">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <FileUploadField label="PAN Card" name="panCard" required />
+                                                <FileUploadField label="Aadhaar Card (Front/Back)" name="aadhaarCard" required helpText="Merged PDF or Front Image" />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <FileUploadField label="Address Proof" name="addressProof" required helpText="Electricity Bill, Rent Deed etc." />
+                                                <FileUploadField label="GST Cert (Optional)" name="gstCertificate" />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
+                            {error && (
+                                <div className="mt-8 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-sm text-red-600 animate-in fade-in slide-in-from-top-2 shadow-sm">
+                                    <AlertCircle size={18} className="shrink-0 text-red-500" />
+                                    <span className="font-medium">{error}</span>
+                                </div>
                             )}
 
-                            {step === 3 && (
-                                <motion.div
-                                    key="step3"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-4"
-                                >
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-2">Document Upload</h3>
-                                    <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                                        <div className="flex items-start">
-                                            <AlertCircle size={18} className="text-blue-600 mr-2 mt-0.5" />
-                                            <p className="text-xs text-blue-800">Clear copies needed. JPG/PDF, Max 5MB.</p>
-                                        </div>
-                                    </div>
+                            <div className="mt-10 pt-8 border-t border-gray-100 flex justify-between items-center">
+                                {step > 1 ? (
+                                    <button type="button" onClick={prevStep} className="px-6 py-3.5 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition-all hover:text-gray-900">
+                                        Back
+                                    </button>
+                                ) : (
+                                    <Link to="/login" className="px-6 py-3.5 text-gray-600 font-bold text-sm hover:bg-gray-100 rounded-xl transition-all hover:text-gray-900">
+                                        Login Instead
+                                    </Link>
+                                )}
 
-                                    {/* ID Proof Section */}
-                                    <div className="border border-gray-200 rounded-xl p-4 mb-4">
-                                        <h4 className="font-medium text-gray-900 mb-3 text-sm flex items-center">
-                                            <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded text-[10px] uppercase font-bold mr-2">Mandatory</span>
-                                            ID Proof
-                                        </h4>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            <FileUploadField
-                                                label="PAN Card"
-                                                name="panCard"
-                                                required={true}
-                                            />
-                                            <FileUploadField
-                                                label="ID Proof (Aadhar QR)"
-                                                name="aadhaarCard"
-                                                required={true}
-                                                helpText="Must have QR code"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Address Proof Section */}
-                                    <div className="border border-gray-200 rounded-xl p-4">
-                                        <h4 className="font-medium text-gray-900 mb-3 text-sm flex items-center">
-                                            <span className="bg-blue-100 text-blue-700 py-0.5 px-2 rounded text-[10px] uppercase font-bold mr-2">Mandatory</span>
-                                            Address Proof
-                                        </h4>
-                                        <select
-                                            name="addressProofType"
-                                            value={formData.addressProofType}
-                                            onChange={handleChange}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none mb-3"
-                                        >
-                                            {addressProofOptions.map((opt, idx) => (
-                                                <option key={idx} value={opt}>{opt}</option>
-                                            ))}
-                                        </select>
-
-                                        <FileUploadField
-                                            label="Address Proof Document"
-                                            name="addressProof"
-                                            required={true}
-                                            helpText={formData.addressProofType.includes('All 3 Pages') ? 'Upload all pages as single PDF' : ''}
-                                        />
-                                    </div>
-
-
-
-                                    {error && <div className="text-red-500 text-xs mt-2 bg-red-50 p-2 rounded border border-red-100">{error}</div>}
-
-                                    <div className="flex justify-between mt-6">
-                                        <button type="button" onClick={prevStep} className="flex items-center px-6 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">
-                                            <ArrowLeft size={16} className="mr-2" /> Back
-                                        </button>
-                                        <button type="button" onClick={nextStep} className="flex items-center px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
-                                            Next Step <ArrowRight size={16} className="ml-2" />
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-
-                            {step === 4 && (
-                                <motion.div
-                                    key="step4"
-                                    initial={{ opacity: 0, x: 20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    exit={{ opacity: 0, x: -20 }}
-                                    className="space-y-4"
-                                >
-                                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Review & Submit</h3>
-
-                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                                        <h4 className="font-semibold text-blue-800 text-sm mb-2">Summary</h4>
-                                        <ul className="text-sm text-blue-700 space-y-1">
-                                            <li><strong>Agency:</strong> {formData.agencyName}</li>
-                                            <li><strong>Email:</strong> {formData.email}</li>
-                                            <li><strong>Phone:</strong> {formData.countryCode} {formData.phone}</li>
-                                            <li><strong>Location:</strong> {formData.city}, {formData.state}</li>
-                                            <li><strong>ID Proof:</strong> PAN & Aadhaar (Uploaded)</li>
-                                            <li><strong>Address Proof:</strong> {formData.addressProofType}</li>
-                                        </ul>
-                                    </div>
-
-                                    <div className="flex items-start space-x-3 mt-6">
-                                        <input type="checkbox" name="termsAccepted" id="terms" checked={formData.termsAccepted} onChange={handleChange}
-                                            className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
-                                        <label htmlFor="terms" className="text-xs text-gray-600">
-                                            I agree to the <Link to="/terms" className="text-blue-600 hover:underline">Terms of Service</Link> and <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
-                                        </label>
-                                    </div>
-
-                                    {error && (
-                                        <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
-                                            {error}
-                                        </div>
-                                    )}
-
-                                    <div className="flex justify-between mt-8">
-                                        <button type="button" onClick={prevStep} className="flex items-center px-6 py-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">
-                                            <ArrowLeft size={16} className="mr-2" /> Back
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={!formData.termsAccepted || loading}
-                                            className={`flex items-center px-8 py-3 bg-green-600 text-white rounded-lg font-semibold shadow-md text-sm
-                        ${(!formData.termsAccepted || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-green-700 hover:shadow-lg'} transition-all`}
-                                        >
-                                            {loading ? 'Creating Account...' : 'Complete Registration'}
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-
-                        <div className="mt-6 pt-4 border-t border-gray-100 text-center">
-                            <p className="text-xs text-gray-600">
-                                Already have an account? <Link to="/login" className="text-blue-600 font-medium hover:underline">Log in here</Link>
-                            </p>
-                        </div>
-                    </form>
+                                {step < 3 ? (
+                                    <button type="button" onClick={nextStep} className="px-8 py-3.5 bg-blue-600 text-white font-bold text-sm rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 hover:shadow-blue-600/40 hover:-translate-y-0.5 flex items-center group">
+                                        Continue <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
+                                    </button>
+                                ) : (
+                                    <button type="submit" disabled={loading} className="px-8 py-3.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-600/20 hover:shadow-green-600/40 hover:-translate-y-0.5 flex items-center group">
+                                        {loading ? 'Submitting...' : 'Submit Application'}
+                                        {!loading && <CheckCircle size={18} className="ml-2 group-hover:scale-110 transition-transform" />}
+                                    </button>
+                                )}
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

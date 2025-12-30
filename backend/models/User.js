@@ -8,6 +8,15 @@ const userSchema = new mongoose.Schema({
     phone: { type: String, required: true, unique: true },
     password: { type: String, required: true },
 
+    // Role & Permissions
+    role: {
+        type: String,
+        enum: ['admin', 'agent', 'sub-agent', 'user'],
+        default: 'agent'
+    },
+
+    avatar: { type: String }, // User Profile Picture
+
     // Agent Business Details
     agencyName: { type: String },
     agencyType: { type: String, enum: ['Travel Agency', 'Freelancer', 'Corporate', 'Tour Operator', 'Visa Consultant'] },
@@ -144,26 +153,41 @@ const userSchema = new mongoose.Schema({
         }]
     },
 
-    // Security
-    role: { type: String, enum: ['agent', 'sub-agent', 'admin'], default: 'agent' },
-    otp: {
-        code: String,
-        expiresAt: Date
+    // Feature: Agent Tiering
+    tier: {
+        type: String,
+        enum: ['Silver', 'Gold', 'Platinum'],
+        default: 'Silver'
     },
+
+    // Feature: Auto-Tiering Logic
+    performanceMetrics: {
+        totalFilesProcessed: { type: Number, default: 0 },
+        totalSpentLastMonth: { type: Number, default: 0 },
+        lastTierUpdate: Date
+    },
+
+    // Feature: Sub-Accounts (Staff)
+    parentAgentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // If this user is staff of another agent
+    permissions: [{ type: String }], // e.g. ['create_application', 'view_wallet']
 
     // Wallet
     walletBalance: { type: Number, default: 0 },
+    currency: { type: String, default: 'INR' },
+
+    isActive: { type: Boolean, default: true },
+
+    notifications: {
+        email: { type: Boolean, default: true },
+        sms: { type: Boolean, default: true },
+        whatsapp: { type: Boolean, default: true },
+        applicationUpdates: { type: Boolean, default: true },
+        marketing: { type: Boolean, default: false }
+    },
 
 }, { timestamps: true });
 
-// Encrypt password before save
-userSchema.pre('save', async function (next) {
-    if (!this.isModified('password')) {
-        next();
-    }
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-});
+// Encrypt password before save - REMOVED TO FIX SEEDER ISSUE. HASH MANUALLY IN CONTROLLER.
 
 // Method to verify password
 userSchema.methods.matchPassword = async function (enteredPassword) {

@@ -4,8 +4,11 @@ import { Provider } from 'react-redux';
 import { store } from './store';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
 import Register from './pages/Register';
-import Dashboard from './pages/Dashboard';
+import AgentDashboard from './pages/AgentDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import TrackStatus from './pages/TrackStatus';
 import OCRDemo from './pages/OCRDemo';
 
 class ErrorBoundary extends React.Component {
@@ -44,7 +47,11 @@ function App() {
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
-              <Route path="/dashboard/*" element={<Dashboard />} />
+              <Route path="/track-status" element={<TrackStatus />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
+              <Route path="/admin/dashboard/*" element={<AdminDashboard />} />
+              <Route path="/:agencySlug/dashboard/*" element={<AgentDashboard />} />
+              <Route path="/dashboard/*" element={<AgentDashboard />} />
               <Route path="/ocr-demo" element={<OCRDemo />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

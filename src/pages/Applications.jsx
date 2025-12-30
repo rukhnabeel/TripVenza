@@ -1,128 +1,175 @@
-import React, { useState } from 'react';
-import { Search, Filter, Download, Eye, MoreHorizontal, ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Filter, Briefcase, FileText, ChevronDown, X } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchApplications } from '../store/slices/applicationsSlice';
+import { Loader } from 'lucide-react';
+import ApplicationStatusCard from '../components/ApplicationStatusCard';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const ApplicationRow = ({ id, name, passport, country, type, date, status, amount }) => {
-    const statusStyles = {
-        Pending: 'bg-orange-100 text-orange-700 border-orange-200',
-        Approved: 'bg-green-100 text-green-700 border-green-200',
-        Rejected: 'bg-red-100 text-red-700 border-red-200',
-        Processing: 'bg-blue-100 text-blue-700 border-blue-200',
+const Applications = () => {
+    const dispatch = useDispatch();
+    const { list, loading } = useSelector(state => state.applications);
+
+    // State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState('All');
+
+    React.useEffect(() => {
+        dispatch(fetchApplications());
+    }, [dispatch]);
+
+    const tabs = ['All', 'Processing', 'Approved', 'Rejected'];
+
+    const filteredList = useMemo(() => {
+        return list.filter(app => {
+            const matchesSearch =
+                (app.applicants?.[0]?.firstName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+                (app.applicants?.[0]?.passportNumber || '').includes(searchTerm) ||
+                (app.applicationId || '').includes(searchTerm);
+
+            if (activeTab === 'All') return matchesSearch;
+            if (activeTab === 'Processing') return matchesSearch && ['Pending', 'Submitted', 'Processing'].includes(app.status);
+            return matchesSearch && app.status === activeTab;
+        });
+    }, [list, searchTerm, activeTab]);
+
+    // Animation Variants
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                type: "spring",
+                stiffness: 100,
+                damping: 12
+            }
+        }
     };
 
     return (
-        <tr className="hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0 group">
-            <td className="py-4 px-6 text-sm font-medium text-gray-900">
-                #{id}
-            </td>
-            <td className="py-4 px-6">
-                <div className="flex items-center">
-                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-600 mr-3">
-                        {name.charAt(0)}
-                    </div>
+        <div className="space-y-8 pb-10">
+            {/* Header */}
+            <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="bg-gradient-to-r from-blue-700 to-indigo-800 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden"
+            >
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                     <div>
-                        <div className="text-sm font-medium text-gray-900">{name}</div>
-                        <div className="text-xs text-gray-500">{passport}</div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/10">
+                                <Briefcase size={24} className="text-blue-50" />
+                            </div>
+                            <h1 className="text-3xl font-bold font-display">My Applications</h1>
+                        </div>
+                        <p className="text-blue-100/80 max-w-lg text-sm font-medium">
+                            Track the real-time status of your visa applications, download e-visas, and manage rejections.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2 bg-black/20 p-1.5 rounded-2xl backdrop-blur-md border border-white/10">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all relative overflow-hidden ${activeTab === tab
+                                    ? 'bg-white text-blue-700 shadow-lg'
+                                    : 'text-blue-100 hover:bg-white/10'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
                     </div>
                 </div>
-            </td>
-            <td className="py-4 px-6 text-sm text-gray-600">{country}</td>
-            <td className="py-4 px-6 text-sm text-gray-600">{type}</td>
-            <td className="py-4 px-6 text-sm text-gray-500">{date}</td>
-            <td className="py-4 px-6">
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusStyles[status] || 'bg-gray-100 text-gray-600 border-gray-200'}`}>
-                    {status}
-                </span>
-            </td>
-            <td className="py-4 px-6 text-sm font-medium text-gray-900">₹{amount}</td>
-            <td className="py-4 px-6 text-right">
-                <button className="text-gray-400 hover:text-blue-600 transition-colors p-2 rounded-lg hover:bg-blue-50">
-                    <MoreHorizontal size={18} />
-                </button>
-            </td>
-        </tr>
-    );
-};
+                {/* Decorative background elements */}
+                <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+                <div className="absolute bottom-0 left-10 w-32 h-32 bg-indigo-500/30 rounded-full blur-2xl"></div>
+            </motion.div>
 
-const Applications = () => {
-    const [searchTerm, setSearchTerm] = useState('');
-
-    // Mock Data
-    const applications = [
-        { id: '1001', name: 'Rahul Sharma', passport: 'A1234567', country: 'UAE', type: 'Tourist 30 Days', date: 'Oct 24, 2024', status: 'Processing', amount: '6,500' },
-        { id: '1002', name: 'Anjali Gupta', passport: 'B9876543', country: 'Singapore', type: 'Tourist 30 Days', date: 'Oct 23, 2024', status: 'Approved', amount: '2,800' },
-        { id: '1003', name: 'Vikram Singh', passport: 'C4567890', country: 'Thailand', type: 'Tourist Visa', date: 'Oct 23, 2024', status: 'Pending', amount: '3,200' },
-        { id: '1004', name: 'Sneha Patel', passport: 'D1230987', country: 'Malaysia', type: 'E-Visa 30 Days', date: 'Oct 22, 2024', status: 'Rejected', amount: '1,500' },
-        { id: '1005', name: 'Mohammed Ali', passport: 'E5678901', country: 'Saudi Arabia', type: 'Umrah Visa', date: 'Oct 21, 2024', status: 'Approved', amount: '12,000' },
-        { id: '1006', name: 'Priya Desai', passport: 'F6789012', country: 'Vietnam', type: 'Tourist 30 Days', date: 'Oct 20, 2024', status: 'Approved', amount: '2,100' },
-        { id: '1007', name: 'Arjun Kumar', passport: 'G7890123', country: 'Azerbaijan', type: 'Standard Visa', date: 'Oct 19, 2024', status: 'Processing', amount: '1,800' },
-    ];
-
-    return (
-        <div className="space-y-6 animate-fade-in">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900">My Applications</h1>
-                    <p className="text-gray-500 mt-1">Track and manage all your visa applications.</p>
-                </div>
-                <div className="flex gap-3">
-                    <button className="flex items-center px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors shadow-sm">
-                        <Filter size={18} className="mr-2" />
-                        Filter
-                    </button>
-                    <button className="flex items-center px-4 py-2 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors shadow-sm">
-                        <Download size={18} className="mr-2" />
-                        Export
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100">
-                    <div className="relative max-w-md">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                        <input
-                            type="text"
-                            placeholder="Search by name, passport, or ID..."
-                            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
+            {/* Search and Content */}
+            <div className="max-w-5xl mx-auto">
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="mb-8 relative group"
+                >
+                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                        <Search className="text-gray-400 group-focus-within:text-blue-500 transition-colors" size={22} />
                     </div>
-                </div>
+                    <input
+                        type="text"
+                        placeholder="Search by applicant name, passport number, or Application ID..."
+                        className="w-full pl-14 pr-12 py-5 bg-white border border-gray-100/50 rounded-2xl shadow-sm focus:outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500/50 transition-all text-lg text-gray-800 placeholder-gray-400"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                    {searchTerm && (
+                        <button
+                            onClick={() => setSearchTerm('')}
+                            className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                            <X size={20} />
+                        </button>
+                    )}
+                </motion.div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                                <th className="py-4 px-6 font-semibold">App ID</th>
-                                <th className="py-4 px-6 font-semibold">Applicant</th>
-                                <th className="py-4 px-6 font-semibold">Country</th>
-                                <th className="py-4 px-6 font-semibold">Visa Type</th>
-                                <th className="py-4 px-6 font-semibold">Date</th>
-                                <th className="py-4 px-6 font-semibold">Status</th>
-                                <th className="py-4 px-6 font-semibold">Amount</th>
-                                <th className="py-4 px-6 font-semibold text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {applications.map((app) => (
-                                <ApplicationRow key={app.id} {...app} />
+                {loading ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <Loader className="w-10 h-10 text-blue-600 animate-spin mb-4" />
+                        <p className="text-gray-500 font-medium animate-pulse">Loading your applications...</p>
+                    </div>
+                ) : filteredList.length === 0 ? (
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="text-center py-24 bg-white rounded-3xl border border-dashed border-gray-200 shadow-sm"
+                    >
+                        <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <FileText className="text-blue-300" size={40} />
+                        </div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">No applications found</h3>
+                        <p className="text-gray-500 max-w-sm mx-auto">
+                            {searchTerm ? `We couldn't find any results specifically for "${searchTerm}".` : "You haven't submitted any visa applications yet. Start a new one to get tracking!"}
+                        </p>
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        variants={containerVariants}
+                        initial="hidden"
+                        animate="visible"
+                        className="space-y-6"
+                    >
+                        <AnimatePresence>
+                            {filteredList.map(app => (
+                                <motion.div key={app._id} variants={itemVariants} layout>
+                                    <ApplicationStatusCard application={app} />
+                                </motion.div>
                             ))}
-                        </tbody>
-                    </table>
-                </div>
+                        </AnimatePresence>
 
-                <div className="p-4 border-t border-gray-100 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">Showing 1-7 of 156 applications</div>
-                    <div className="flex gap-2">
-                        <button className="p-2 border border-gray-200 rounded-lg disabled:opacity-50 hover:bg-gray-50 transition-colors">
-                            <ChevronLeft size={18} />
-                        </button>
-                        <button className="p-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                            <ChevronRight size={18} />
-                        </button>
-                    </div>
-                </div>
+                        <motion.div
+                            variants={itemVariants}
+                            className="text-center pt-8 pb-4"
+                        >
+                            <p className="text-gray-400 text-sm font-medium uppercase tracking-wider">
+                                Showing {filteredList.length} application{filteredList.length !== 1 && 's'}
+                            </p>
+                        </motion.div>
+                    </motion.div>
+                )}
             </div>
         </div>
     );

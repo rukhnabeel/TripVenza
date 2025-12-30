@@ -2,23 +2,54 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Create uploads directory if it doesn't exist
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+// Configure Cloudinary (if env vars set)
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+    cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET
+    });
+    console.log('☁️ [STORAGE] Using Cloudinary Storage');
+} else {
+    // console.log('📂 [STORAGE] Using Local Disk Storage (Set CLOUDINARY_* env vars to switch)');
+}
+
+// Create uploads directory if it doesn't exist (only needed for local)
 const uploadsDir = path.join(__dirname, '../uploads');
-if (!fs.existsSync(uploadsDir)) {
+if (!process.env.CLOUDINARY_CLOUD_NAME && !fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure storage
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadsDir);
-    },
-    filename: function (req, file, cb) {
-        // Generate unique filename: timestamp-randomstring-originalname
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Determine Storage Engine
+let storage;
+
+if (process.env.CLOUDINARY_CLOUD_NAME) {
+    storage = new CloudinaryStorage({
+        cloudinary: cloudinary,
+        params: {
+            folder: 'tripvenza_docs', // Folder name in Cloudinary
+            allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+            public_id: (req, file) => {
+                const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+                return file.fieldname + '-' + uniqueSuffix;
+            }
+        },
+    });
+} else {
+    storage = multer.diskStorage({
+        destination: function (req, file, cb) {
+            cb(null, uploadsDir);
+        },
+        filename: function (req, file, cb) {
+            // Generate unique filename: timestamp-randomstring-originalname
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+            cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+        }
+    });
+}
 
 // File filter - only allow images
 const fileFilter = (req, file, cb) => {

@@ -1,8 +1,13 @@
-const mongoose = require('mongoose');
 const dotenv = require('dotenv');
-const connectDB = require('./config/db');
-const Country = require('./models/Country');
-const User = require('./models/User');
+const connectDB = require('../config/db');
+const path = require('path');
+
+dotenv.config({ path: path.join(__dirname, '../.env') });
+const Country = require('../models/Country');
+const User = require('../models/User');
+const Application = require('../models/Application');
+const Transaction = require('../models/Transaction');
+const bcrypt = require('bcryptjs');
 
 dotenv.config();
 // connectDB(); // Removed
@@ -21,7 +26,12 @@ const countries = [
                 stayPeriod: '30 Days',
                 entryType: 'Single',
                 govtFee: 6500,
-                serviceFee: 500,
+                baseServiceFee: 500,
+                tieredServiceFees: {
+                    silver: 500,
+                    gold: 400,
+                    platinum: 300
+                },
                 totalFee: 7000,
                 documentsRequired: ['Passport Front (Color)', 'Passport Back (Color)', 'Passport Size Photo (White Background)'],
                 description: 'Ideal for tourists and family visits.'
@@ -33,7 +43,12 @@ const countries = [
                 stayPeriod: '60 Days',
                 entryType: 'Single',
                 govtFee: 12500,
-                serviceFee: 500,
+                baseServiceFee: 500,
+                tieredServiceFees: {
+                    silver: 500,
+                    gold: 400,
+                    platinum: 300
+                },
                 totalFee: 13000,
                 documentsRequired: ['Passport Front', 'Passport Back', 'Photo'],
                 description: 'Perfect for longer stays and job seekers.'
@@ -53,7 +68,12 @@ const countries = [
                 stayPeriod: '60 Days',
                 entryType: 'Single',
                 govtFee: 2500,
-                serviceFee: 500,
+                baseServiceFee: 500,
+                tieredServiceFees: {
+                    silver: 500,
+                    gold: 400,
+                    platinum: 300
+                },
                 totalFee: 3000,
                 documentsRequired: ['Original Passport', 'Bank Statement (6 Months)', '2 Photos'],
                 description: 'Standard sticker visa processed via embassy.'
@@ -73,13 +93,18 @@ const countries = [
                 stayPeriod: '30 Days',
                 entryType: 'Multiple',
                 govtFee: 1800,
-                serviceFee: 500,
+                baseServiceFee: 500,
+                tieredServiceFees: {
+                    silver: 500,
+                    gold: 400,
+                    platinum: 300
+                },
                 totalFee: 2300,
                 documentsRequired: ['Form 14A', 'Passport Front/Back', 'Photo', 'Flight Tickets'],
                 description: 'Electronic visa for tourism.'
             }
         ]
-    }
+    },
 ];
 
 const importData = async () => {
@@ -87,6 +112,8 @@ const importData = async () => {
         await connectDB();
 
         // Clear existing data
+        await Application.deleteMany();
+        await Transaction.deleteMany();
         await Country.deleteMany();
         await User.deleteMany();
 
@@ -98,7 +125,7 @@ const importData = async () => {
             name: 'Test Agent',
             email: 'agent@tripvenza.com',
             phone: '+919876543210',
-            password: 'password123', // Will be hashed automatically by the pre-save hook
+            password: await bcrypt.hash('password123', 10),
             agencyName: 'TripVenza Demo Agency',
             agencyType: 'Travel Agency',
             panNumber: 'ABCDE1234F',
@@ -112,7 +139,41 @@ const importData = async () => {
             isVerified: true,
             kycStatus: 'Approved',
             walletBalance: 50000,
-            role: 'agent'
+            role: 'agent',
+            tier: 'Silver',
+            currency: 'INR'
+        });
+
+        // Create Seed Application (UAE 30 Days)
+        const uae = await Country.findOne({ code: 'AE' });
+        const visa = uae.visaTypes[0]; // 30 Days
+
+        await Application.create({
+            agent: testUser._id,
+            country: uae._id,
+            visaType: visa.type,
+            applicants: [
+                {
+                    firstName: "Rahul",
+                    lastName: "Sharma",
+                    passportNumber: "Z1234567",
+                    dateOfBirth: new Date("1990-01-01"),
+                    passportExpiry: new Date("2030-01-01"),
+                    gender: "Male",
+                    nationality: "Indian",
+                    status: "Submitted"
+                }
+            ],
+            totalAmount: visa.totalFee,
+            paymentStatus: "Paid",
+            status: "Submitted",
+            pricingSnapshot: {
+                govtFee: visa.govtFee,
+                serviceFee: visa.baseServiceFee,
+                taxAmount: 0,
+                totalAmount: visa.totalFee,
+                currency: "INR"
+            }
         });
 
         console.log('✅ Data Imported Successfully!');

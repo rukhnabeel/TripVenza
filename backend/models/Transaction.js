@@ -10,8 +10,11 @@ const transactionSchema = new mongoose.Schema({
         required: true
     },
     description: String,
-    status: { type: String, enum: ['Success', 'Pending', 'Failed'], default: 'Success' },
+    status: { type: String, enum: ['Success', 'Pending', 'Failed', 'Rejected'], default: 'Pending' }, // Changed default to Pending
     referenceId: String, // Payment Gateway ID or Application ID
+    utrNumber: String, // For UPI/Bank Transfer
+    paymentMethod: { type: String, enum: ['UPI', 'Bank Transfer', 'Gateway', 'Admin Adjustment', 'Wallet', 'Card'], default: 'UPI' },
+    proofUrl: String, // Optional screenshot
     balanceAfter: Number // Snapshot of balance after transaction
 }, { timestamps: true });
 

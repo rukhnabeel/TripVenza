@@ -246,12 +246,16 @@ node test-ocr.js
 - CORS configuration
 - Helmet security headers
 
-## 🚧 Future Enhancements
+### 🛡️ Admin & Production Features (v2.0)
+- **Admin Dashboard** - Full oversight of agents, applications, and wallets
+- **Agent Tier System** - Dynamic pricing (Silver/Gold/Platinum) for agents
+- **Document Verification** - Admin portal to review agent KYC documents
+- **Public Status Tracking** - External tracking page for applicants
+- **Email Notifications** - Automated emails via Nodemailer
+- **Cloud Storage** - Scalable document storage via Cloudinary
 
-- [ ] Admin dashboard
-- [ ] Email notifications
-- [ ] Payment gateway integration
-- [ ] Document verification
+## 🚧 Future Enhancements
+- [ ] Payment gateway integration (Razorpay/Stripe)
 - [ ] Multi-language support
 - [ ] Advanced OCR features (ID cards, driver's licenses)
 - [ ] Real-time camera capture for OCR

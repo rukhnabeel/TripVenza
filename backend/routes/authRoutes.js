@@ -11,10 +11,14 @@ const registerUploads = upload.fields([
 ]);
 
 // Controller imports
-const { registerUser, loginUser, sendOtp, verifyOtp } = require('../controllers/authController');
+// Controller imports
+const { registerUser, loginUser, sendOtp, verifyOtp, getMe } = require('../controllers/authController');
+const { protect } = require('../middleware/authMiddleware');
 
 router.post('/register', registerUploads, registerUser);
 router.post('/login', loginUser);
+router.get('/me', protect, getMe);
+
 router.post('/send-otp', sendOtp);
 router.post('/verify-otp', verifyOtp);
 
