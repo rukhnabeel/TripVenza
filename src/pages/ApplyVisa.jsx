@@ -1,11 +1,3 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Upload, X, Plus, User as UserIcon } from 'lucide-react';
-import api from '../utils/api';
-import OCRUpload from '../components/OCRUpload';
-import DocumentUploader from '../components/DocumentUploader';
-import SimpleUploader from '../components/SimpleUploader';
-import { indianStates } from '../data/indianStates';
 
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
