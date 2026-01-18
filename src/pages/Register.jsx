@@ -134,9 +134,13 @@ const Register = () => {
             const { data } = await api.post('/auth/send-otp', { identifier, type: type === 'phone' ? 'mobile' : 'email' });
             setOtpState(prev => ({ ...prev, [type + 'Sent']: true }));
 
-            // For Dev/Demo: Alert the OTP if returned (Mobile/Mock)
+            // For Dev/Demo/Fallback: Autofill the OTP
             if (data.devOtp) {
-                alert(`DEMO OTP for ${type}: ${data.devOtp}`);
+                // alert(`DEMO OTP for ${type}: ${data.devOtp}`);
+                setOtpState(prev => ({
+                    ...prev,
+                    [type + 'Otp']: data.devOtp
+                }));
             }
 
             setError('');
