@@ -262,146 +262,117 @@ const Settings = () => {
                         </div>
                     )}
 
-                    {/* --- Platform Settings Tab (New) --- */}
-                    {activeTab === 'platform' && (
-                        <div className="max-w-2xl space-y-8 animate-in slide-in-from-right-4 fade-in duration-300">
+                    {/* --- Agency Tab --- */}                            {/* --- Agency Tab --- */}
+                    {activeTab === 'agency' && (
+                        <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
                             <div>
-                                <h3 className="text-xl font-bold text-gray-900 mb-1">Platform Controls</h3>
-                                <p className="text-sm text-gray-500">Manage global system configurations.</p>
+                                <h3 className="text-xl font-bold text-gray-900 mb-1">Agency Details</h3>
+                                <p className="text-sm text-gray-500">Manage your business information.</p>
                             </div>
-
-                            <div className="bg-red-50 border border-red-100 p-6 rounded-2xl shadow-sm">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center">
-                                        <div className="p-3 bg-white text-red-600 rounded-xl mr-5 shadow-sm border border-red-100">
-                                            <Shield size={24} />
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-900 text-lg">Maintenance Mode</h4>
-                                            <p className="text-sm text-red-600/80 font-medium mt-0.5">Disables access for all non-admin users.</p>
-                                        </div>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" checked={platformSettings.maintenanceMode} onChange={() => handlePlatformChange('maintenanceMode')} className="sr-only peer" />
-                                        <div className="w-14 h-8 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-600 shadow-inner"></div>
-                                    </label>
-                                </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Agency Name</label>
+                                <input type="text" name="agencyName" value={formData.agencyName} onChange={handleChange} className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm" />
                             </div>
-
-
-
-                            {/* --- Agency Tab --- */}
-                            {activeTab === 'agency' && (
-                                <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-1">Agency Details</h3>
-                                        <p className="text-sm text-gray-500">Manage your business information.</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Agency Name</label>
-                                        <input type="text" name="agencyName" value={formData.agencyName} onChange={handleChange} className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Address</label>
-                                        <textarea rows="4" name="agencyAddress" value={formData.agencyAddress} onChange={handleChange} className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm resize-none" />
-                                    </div>
-                                </div>
-                            )}
-
-
-                            {/* --- Notifications Tab --- */}
-                            {activeTab === 'notifications' && (
-                                <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-1">Notification Preferences</h3>
-                                        <p className="text-sm text-gray-500">Control how we contact you.</p>
-                                    </div>
-
-                                    <div className="space-y-4">
-                                        {[
-                                            { id: 'email', label: 'Email Notifications', desc: 'Receive updates via email' },
-                                            { id: 'sms', label: 'SMS Alerts', desc: 'Get important alerts via SMS' },
-                                            { id: 'whatsapp', label: 'WhatsApp Updates', desc: 'Receive updates on WhatsApp' }
-                                        ].map((item) => (
-                                            <div key={item.id} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
-                                                <div>
-                                                    <h4 className="font-bold text-gray-900">{item.label}</h4>
-                                                    <p className="text-sm text-gray-500 mt-0.5">{item.desc}</p>
-                                                </div>
-                                                <label className="relative inline-flex items-center cursor-pointer">
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={notificationSettings[item.id]}
-                                                        onChange={() => handleNotificationChange(item.id)}
-                                                        className="sr-only peer"
-                                                    />
-                                                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                                                </label>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* --- Security Tab --- */}
-                            {activeTab === 'security' && (
-                                <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-gray-900 mb-1">Security Settings</h3>
-                                        <p className="text-sm text-gray-500">Protect your account.</p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Password</label>
-                                        <div className="relative">
-                                            <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                                            <input
-                                                type="password"
-                                                name="currentPassword"
-                                                value={passwordData.currentPassword}
-                                                onChange={handlePasswordChange}
-                                                className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">New Password</label>
-                                            <input
-                                                type="password"
-                                                name="newPassword"
-                                                value={passwordData.newPassword}
-                                                onChange={handlePasswordChange}
-                                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Confirm Password</label>
-                                            <input
-                                                type="password"
-                                                name="confirmPassword"
-                                                value={passwordData.confirmPassword}
-                                                onChange={handlePasswordChange}
-                                                className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="pt-8 border-t border-gray-100 mt-10 flex justify-end">
-                                <button
-                                    onClick={activeTab === 'security' ? handleSavePassword : handleSave}
-                                    disabled={loading}
-                                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-600/20 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5 flex items-center group"
-                                >
-                                    <Save size={18} className="mr-2 group-hover:scale-110 transition-transform" />
-                                    {loading ? 'Saving...' : activeTab === 'security' ? 'Update Password' : 'Save Changes'}
-                                </button>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Business Address</label>
+                                <textarea rows="4" name="agencyAddress" value={formData.agencyAddress} onChange={handleChange} className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm resize-none" />
                             </div>
                         </div>
+                    )}
+
+
+                    {/* --- Notifications Tab --- */}
+                    {activeTab === 'notifications' && (
+                        <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-1">Notification Preferences</h3>
+                                <p className="text-sm text-gray-500">Control how we contact you.</p>
+                            </div>
+
+                            <div className="space-y-4">
+                                {[
+                                    { id: 'email', label: 'Email Notifications', desc: 'Receive updates via email' },
+                                    { id: 'sms', label: 'SMS Alerts', desc: 'Get important alerts via SMS' },
+                                    { id: 'whatsapp', label: 'WhatsApp Updates', desc: 'Receive updates on WhatsApp' }
+                                ].map((item) => (
+                                    <div key={item.id} className="flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
+                                        <div>
+                                            <h4 className="font-bold text-gray-900">{item.label}</h4>
+                                            <p className="text-sm text-gray-500 mt-0.5">{item.desc}</p>
+                                        </div>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={notificationSettings[item.id]}
+                                                onChange={() => handleNotificationChange(item.id)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                        </label>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* --- Security Tab --- */}
+                    {activeTab === 'security' && (
+                        <div className="max-w-2xl space-y-6 animate-in slide-in-from-right-4 fade-in duration-300">
+                            <div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-1">Security Settings</h3>
+                                <p className="text-sm text-gray-500">Protect your account.</p>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Password</label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                                    <input
+                                        type="password"
+                                        name="currentPassword"
+                                        value={passwordData.currentPassword}
+                                        onChange={handlePasswordChange}
+                                        className="w-full pl-11 pr-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">New Password</label>
+                                    <input
+                                        type="password"
+                                        name="newPassword"
+                                        value={passwordData.newPassword}
+                                        onChange={handlePasswordChange}
+                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Confirm Password</label>
+                                    <input
+                                        type="password"
+                                        name="confirmPassword"
+                                        value={passwordData.confirmPassword}
+                                        onChange={handlePasswordChange}
+                                        className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 outline-none transition-all font-medium text-gray-900 shadow-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pt-8 border-t border-gray-100 mt-10 flex justify-end">
+                        <button
+                            onClick={activeTab === 'security' ? handleSavePassword : handleSave}
+                            disabled={loading}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold text-sm shadow-xl shadow-blue-600/20 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5 flex items-center group"
+                        >
+                            <Save size={18} className="mr-2 group-hover:scale-110 transition-transform" />
+                            {loading ? 'Saving...' : activeTab === 'security' ? 'Update Password' : 'Save Changes'}
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 };
 

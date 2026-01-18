@@ -15,7 +15,6 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 
 import { logout } from '../store/slices/authSlice';
-import logo from '../assets/tripvenza_logo.png';
 
 const AgentSidebar = ({ isOpen, onClose }) => {
     const dispatch = useDispatch();
@@ -56,12 +55,7 @@ const AgentSidebar = ({ isOpen, onClose }) => {
                 md:translate-x-0
             `}>
                 <div className="p-6 border-b border-gray-100 flex justify-center">
-                    <img
-                        src={logo}
-                        alt="TripVenza Logo"
-                        className="h-12 w-auto object-contain"
-                    />
-                    <div className="mt-4 flex items-center space-x-3">
+                    <div className="flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
                             {user?.name?.charAt(0) || 'A'}
                         </div>
