@@ -390,7 +390,6 @@ exports.resetPassword = async (req, res) => {
         console.error('Reset Password Error:', error);
         res.status(500).json({ message: error.message });
     }
-}
 };
 
 // @desc    Test SMTP Connection (Debug)
