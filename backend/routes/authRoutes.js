@@ -25,5 +25,6 @@ router.post('/verify-otp', verifyOtp);
 
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', resetPassword);
+router.get('/test-smtp', require('../controllers/authController').testSmtp);
 
 module.exports = router;
