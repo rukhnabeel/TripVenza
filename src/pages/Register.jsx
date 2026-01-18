@@ -171,8 +171,9 @@ const Register = () => {
                 setError('Please fill in all personal information fields.');
                 return;
             }
-            if (!otpState.emailVerified) { setError('Please verify your Email Address.'); return; }
-            if (!otpState.phoneVerified) { setError('Please verify your Mobile Number.'); return; }
+            // TEMPORARY BYPASS: Allow registration without OTP verification
+            // if (!otpState.emailVerified) { setError('Please verify your Email Address.'); return; }
+            // if (!otpState.phoneVerified) { setError('Please verify your Mobile Number.'); return; }
             if (formData.password !== formData.confirmPassword) { setError('Passwords do not match.'); return; }
         }
 
