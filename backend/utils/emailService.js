@@ -12,6 +12,12 @@ const sendEmail = async (to, subject, html, attachments = []) => {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS,
                 },
+                tls: {
+                    rejectUnauthorized: false // Accept self-signed certificates
+                },
+                connectionTimeout: 10000, // 10 seconds
+                greetingTimeout: 10000,
+                socketTimeout: 10000
             });
 
             const info = await transporter.sendMail({
