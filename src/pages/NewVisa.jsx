@@ -1,16 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { Search, MapPin, Clock, Calendar, CheckCircle2, ArrowRight, Globe } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../utils/api';
-
 const NewVisa = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams(); // Hook to read URL params
     const { user } = useSelector(state => state.auth);
     const [countries, setCountries] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || ''); // Initialize with URL param
     const [selectedCountry, setSelectedCountry] = useState(null);
 
     useEffect(() => {
@@ -79,89 +79,101 @@ const NewVisa = () => {
 
                 {/* Visa Types Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                    {selectedCountry.visaTypes.map((visa, idx) => {
-                        const userTier = user?.tier?.toLowerCase() || 'silver';
-                        const serviceFee = visa.tieredServiceFees?.[userTier] !== undefined
-                            ? visa.tieredServiceFees[userTier]
-                            : visa.baseServiceFee;
-                        const dynamicTotalFee = Number(visa.govtFee) + Number(serviceFee);
+                    {selectedCountry.visaTypes && selectedCountry.visaTypes.length > 0 ? (
+                        selectedCountry.visaTypes.map((visa, idx) => {
+                            const userTier = user?.tier?.toLowerCase() || 'silver';
+                            const serviceFee = visa.tieredServiceFees?.[userTier] !== undefined
+                                ? visa.tieredServiceFees[userTier]
+                                : visa.baseServiceFee;
+                            const dynamicTotalFee = Number(visa.govtFee) + Number(serviceFee);
 
-                        const visaForApplication = {
-                            ...visa,
-                            totalFee: dynamicTotalFee,
-                            appliedTier: userTier
-                        };
+                            const visaForApplication = {
+                                ...visa,
+                                totalFee: dynamicTotalFee,
+                                appliedTier: userTier
+                            };
 
-                        return (
-                            <motion.div
-                                key={idx}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="group bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 hover:shadow-2xl hover:shadow-blue-900/5 hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
-                            >
-                                {/* Header Strip */}
-                                <div className={`h-2 w-full ${visa.entryType === 'Multiple' ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}></div>
+                            return (
+                                <motion.div
+                                    key={idx}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: idx * 0.1 }}
+                                    className="group bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 hover:shadow-2xl hover:shadow-blue-900/5 hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden"
+                                >
+                                    {/* Header Strip */}
+                                    <div className={`h-2 w-full ${visa.entryType === 'Multiple' ? 'bg-gradient-to-r from-purple-500 to-indigo-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'}`}></div>
 
-                                <div className="p-8 flex-1 flex flex-col">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div>
-                                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 ${visa.entryType === 'Multiple' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
-                                                {visa.entryType} Entry
-                                            </span>
-                                            <h3 className="text-2xl font-bold text-gray-900 leading-tight">{visa.type}</h3>
-                                        </div>
-                                        <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                                            <CheckCircle2 size={24} />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-4 mb-8 flex-1">
-                                        <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
-                                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
-                                                <Clock size={16} />
-                                            </div>
-                                            <span className="text-sm">Processing: <span className="font-bold">{visa.processingTime}</span></span>
-                                        </div>
-                                        <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
-                                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
-                                                <Calendar size={16} />
-                                            </div>
-                                            <span className="text-sm">Validity: <span className="font-bold">{visa.validity}</span></span>
-                                        </div>
-                                        <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
-                                            <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
-                                                <MapPin size={16} />
-                                            </div>
-                                            <span className="text-sm">Stay Period: <span className="font-bold">{visa.stayPeriod}</span></span>
-                                        </div>
-                                    </div>
-
-                                    <div className="pt-6 border-t border-gray-100">
-                                        <div className="flex justify-between items-end mb-6">
+                                    <div className="p-8 flex-1 flex flex-col">
+                                        <div className="flex justify-between items-start mb-6">
                                             <div>
-                                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Fees</p>
-                                                <div className="flex items-baseline">
-                                                    <span className="text-3xl font-black text-gray-900 font-display">₹{dynamicTotalFee}</span>
-                                                    <span className="text-sm text-gray-400 ml-1 font-medium">/pax</span>
+                                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-3 ${visa.entryType === 'Multiple' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>
+                                                    {visa.entryType} Entry
+                                                </span>
+                                                <h3 className="text-2xl font-bold text-gray-900 leading-tight">{visa.type}</h3>
+                                            </div>
+                                            <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                                                <CheckCircle2 size={24} />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-4 mb-8 flex-1">
+                                            <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
+                                                    <Clock size={16} />
+                                                </div>
+                                                <span className="text-sm">Processing: <span className="font-bold">{visa.processingTime}</span></span>
+                                            </div>
+                                            <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
+                                                    <Calendar size={16} />
+                                                </div>
+                                                <span className="text-sm">Validity: <span className="font-bold">{visa.validity}</span></span>
+                                            </div>
+                                            <div className="flex items-center text-gray-600 group-hover:text-gray-900 transition-colors">
+                                                <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center mr-3 text-gray-400">
+                                                    <MapPin size={16} />
+                                                </div>
+                                                <span className="text-sm">Stay Period: <span className="font-bold">{visa.stayPeriod}</span></span>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-6 border-t border-gray-100">
+                                            <div className="flex justify-between items-end mb-6">
+                                                <div>
+                                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Total Fees</p>
+                                                    <div className="flex items-baseline">
+                                                        <span className="text-3xl font-black text-gray-900 font-display">₹{dynamicTotalFee}</span>
+                                                        <span className="text-sm text-gray-400 ml-1 font-medium">/pax</span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded">All Inclusive</p>
                                                 </div>
                                             </div>
-                                            <div className="text-right">
-                                                <p className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded">All Inclusive</p>
-                                            </div>
-                                        </div>
 
-                                        <button
-                                            onClick={() => navigate('/dashboard/apply-visa', { state: { country: selectedCountry, visa: visaForApplication } })}
-                                            className="w-full py-4 bg-gray-900 hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-600/30 flex items-center justify-center group-hover:translate-y-0"
-                                        >
-                                            Apply Now <ArrowRight size={18} className="ml-2" />
-                                        </button>
+                                            <button
+                                                onClick={() => navigate('/dashboard/apply-visa', { state: { country: selectedCountry, visa: visaForApplication } })}
+                                                className="w-full py-4 bg-gray-900 hover:bg-blue-600 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-blue-600/30 flex items-center justify-center group-hover:translate-y-0"
+                                            >
+                                                Apply Now <ArrowRight size={18} className="ml-2" />
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            </motion.div>
-                        );
-                    })}
+                                </motion.div>
+                            );
+                        })
+                    ) : (
+                        <div className="col-span-full py-16 text-center bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200">
+                            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-500 mb-4">
+                                <Clock size={32} />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">Visas Coming Soon</h3>
+                            <p className="text-gray-500 max-w-md mx-auto">
+                                We are currently updating our visa products for {selectedCountry.name}. Please check back later or contact support for assistance.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
         );

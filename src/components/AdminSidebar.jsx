@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/slices/authSlice';
+import logo from '../assets/tripvenza_logo.png';
 
 const AdminSidebar = () => {
     const dispatch = useDispatch();
@@ -36,8 +37,11 @@ const AdminSidebar = () => {
     return (
         <div className="w-64 bg-slate-900 text-white min-h-screen flex flex-col fixed left-0 top-0 z-20">
             <div className="p-6 border-b border-slate-700">
-                <h2 className="text-xl font-bold text-white">
-                    TripVenza Admin
+                <div className="bg-white/10 p-2 rounded-lg backdrop-blur-sm inline-block mb-2">
+                    <img src={logo} alt="TripVenza Admin" className="h-10 w-auto object-contain" />
+                </div>
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">
+                    Admin Portal
                 </h2>
                 <div className="mt-4 flex items-center space-x-3">
                     <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold">

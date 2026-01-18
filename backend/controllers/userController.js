@@ -37,7 +37,7 @@ exports.updateAgentStatus = async (req, res) => {
                     <p>Dear ${user.name},</p>
                     <p>Congratulations! Your Agency <strong>${user.agencyName}</strong> has been verified and approved.</p>
                     <p>You can now login to your dashboard and start submitting visa applications.</p>
-                    <a href="http://localhost:5173/login" style="display: inline-block; background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login to Dashboard</a>
+                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/login" style="display: inline-block; background-color: #2563EB; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin-top: 10px;">Login to Dashboard</a>
                 </div>
             `;
             await sendEmail(user.email, 'Account Approved - TripVenza', emailHtml);

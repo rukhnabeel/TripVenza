@@ -12,6 +12,22 @@ const getCountries = async (req, res) => {
     }
 };
 
+// @desc    Get single country by ID
+// @route   GET /api/countries/:id
+// @access  Public
+const getCountryById = async (req, res) => {
+    try {
+        const country = await Country.findById(req.params.id);
+        if (country) {
+            res.json(country);
+        } else {
+            res.status(404).json({ message: 'Country not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error', error: error.message });
+    }
+};
+
 // @desc    Create a new country
 // @route   POST /api/countries
 // @access  Private/Admin
@@ -179,6 +195,7 @@ const deleteVisaType = async (req, res) => {
 
 module.exports = {
     getCountries,
+    getCountryById,
     createCountry,
     updateCountry,
     deleteCountry,

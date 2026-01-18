@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import ApplicationStatusCard from '../components/ApplicationStatusCard';
+import logo from '../assets/tripvenza_logo.png';
 
 const TrackStatus = () => {
     const [referenceId, setReferenceId] = useState('');
@@ -39,11 +40,8 @@ const TrackStatus = () => {
 
             <div className="w-full max-w-xl relative z-10">
                 <div className="text-center mb-8">
-                    <Link to="/" className="inline-flex items-center justify-center mb-6 hover:opacity-80 transition-opacity">
-                        <div className="bg-gradient-to-br from-blue-600 to-indigo-600 text-white w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-blue-600/20 mr-3">
-                            <Globe size={24} />
-                        </div>
-                        <span className="text-2xl font-black text-gray-900 tracking-tight font-display">TripVenza Holidays</span>
+                    <Link to="/" className="inline-flex items-center justify-center mb-6 hover:scale-105 transition-transform">
+                        <img src={logo} alt="TripVenza Holidays" className="h-16 w-auto object-contain" />
                     </Link>
                     <motion.h1
                         initial={{ opacity: 0, y: 10 }}

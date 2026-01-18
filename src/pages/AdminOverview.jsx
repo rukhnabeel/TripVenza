@@ -72,9 +72,9 @@ const RecentActivityTable = ({ applications }) => (
                                 <td className="px-6 py-4 text-sm text-gray-600">{app.country?.name || 'Unknown'}</td>
                                 <td className="px-6 py-4">
                                     <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${app.status === 'Approved' ? 'bg-green-100 text-green-700' :
-                                            app.status === 'Rejected' ? 'bg-red-100 text-red-700' :
-                                                app.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-orange-100 text-orange-700'
+                                        app.status === 'Rejected' ? 'bg-red-100 text-red-700' :
+                                            app.status === 'Processing' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-orange-100 text-orange-700'
                                         }`}>
                                         {app.status}
                                     </span>
@@ -114,14 +114,15 @@ const AdminOverview = () => {
 
                 const agents = agentsRes.data || [];
                 const walletReqs = walletRes.data || [];
-                const allApps = appsRes.data || [];
+                const appsData = appsRes.data || {};
+                const allApps = appsData.applications || [];
 
                 setStats({
                     totalAgents: agents.length,
-                    pendingAgents: agents.filter(a => a.kycStatus === 'Pending').length,
+                    pendingAgents: agents.filter(a => a.kycStatus === 'Submitted').length,
                     pendingWalletRequests: walletReqs.filter(w => w.status === 'Pending').length,
-                    totalApplications: allApps.length,
-                    recentApplications: allApps.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) // Sort descending
+                    totalApplications: appsData.totalCount || 0,
+                    recentApplications: allApps // Backend already sorts by createdAt: -1
                 });
             } catch (error) {
                 console.error("Error fetching admin stats", error);

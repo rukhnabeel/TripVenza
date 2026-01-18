@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
     getCountries,
+    getCountryById,
     createCountry,
     updateCountry,
     deleteCountry,
@@ -13,6 +14,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 
 // Public route to fetch services
 router.get('/', getCountries);
+router.get('/:id', getCountryById);
 
 // Admin routes for Product Management
 // Note: Using 'protect' is enough if the user is upgraded. 'admin' middleware adds an extra layer.

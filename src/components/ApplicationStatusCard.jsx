@@ -1,8 +1,9 @@
 import React from 'react';
 import { CheckCircle, Clock, AlertCircle, FileText, Download, ChevronRight, XCircle, Calendar, MapPin, User } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 const ApplicationStatusCard = ({ application }) => {
+    const navigate = useNavigate();
     const {
         status,
         applicants,
@@ -61,6 +62,14 @@ const ApplicationStatusCard = ({ application }) => {
             borderColor: 'border-rose-200',
             icon: XCircle,
             label: 'Visa Rejected',
+        },
+        Draft: {
+            color: 'bg-gray-400',
+            lightColor: 'bg-gray-100',
+            textColor: 'text-gray-600',
+            borderColor: 'border-gray-200',
+            icon: FileText,
+            label: 'Draft Saved',
         }
     };
 
@@ -78,6 +87,7 @@ const ApplicationStatusCard = ({ application }) => {
     // Estimated Date Logic
     const getEstimatedDate = () => {
         if (status === 'Approved' || status === 'Rejected') return 'Completed';
+        if (status === 'Draft') return 'Not Submitted';
         if (timeline?.processingAt) {
             const date = new Date(timeline.processingAt);
             date.setDate(date.getDate() + 5); // Add 5 days
@@ -103,7 +113,7 @@ const ApplicationStatusCard = ({ application }) => {
                                     </span>
                                     <span className="text-gray-400 text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">#{applicationId?.slice(-8).toUpperCase()}</span>
                                 </div>
-                                <Link to={`/dashboard/applications/${application._id}`} className="group-hover:text-blue-600 transition-colors">
+                                <Link to={`/dashboard/applications/${application.applicationId}`} className="group-hover:text-blue-600 transition-colors">
                                     <h3 className="text-xl font-bold text-gray-900 font-display">{applicantName}</h3>
                                 </Link>
                                 <div className="flex items-center gap-4 mt-2 text-sm text-gray-500 font-medium">
@@ -159,7 +169,8 @@ const ApplicationStatusCard = ({ application }) => {
                                         {status === 'Rejected'
                                             ? <span className="text-red-600 font-medium">{application.rejectionReason || 'Reason not specified'}</span>
                                             : status === 'Approved' ? 'Your e-Visa document is ready for download.'
-                                                : `Estimated Completion: ${getEstimatedDate()}`
+                                                : status === 'Draft' ? 'Application incomplete.'
+                                                    : `Estimated Completion: ${getEstimatedDate()}`
                                         }
                                     </p>
                                 </div>
@@ -168,27 +179,47 @@ const ApplicationStatusCard = ({ application }) => {
 
                         {/* Actions */}
                         <div className="flex gap-2.5 mt-auto">
-                            {status === 'Approved' && application.approvedVisaDocument?.url ? (
-                                <a
-                                    href={application.approvedVisaDocument.url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="flex-1 bg-indigo-600 text-white text-xs font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
+                            {status === 'Draft' ? (
+                                <button
+                                    onClick={() => navigate('/dashboard/new-visa/apply', {
+                                        state: {
+                                            country: country,
+                                            visa: { type: visaType, totalFee: application.pricingSnapshot?.totalAmount || 0 },
+                                            // Passing applicants data back to allow resuming
+                                            applicants: applicants
+                                        }
+                                    })}
+                                    className="flex-1 bg-blue-600 text-white text-xs font-bold py-2.5 rounded-xl hover:bg-blue-700 transition-all flex items-center justify-center shadow-lg shadow-blue-200"
                                 >
-                                    <Download size={16} className="mr-1.5" /> Download Visa
-                                </a>
-                            ) : (
-                                <button disabled className="flex-1 bg-gray-50 text-gray-400 text-xs font-bold py-2.5 rounded-xl border border-gray-100 flex items-center justify-center cursor-not-allowed opacity-60">
-                                    <Download size={16} className="mr-1.5" /> Unavailable
+                                    Resume Application
                                 </button>
-                            )}
+                            ) : (
+                                <>
+                                    {status === 'Approved' && application.approvedVisaDocument?.url ? (
+                                        <a
+                                            href={(application.approvedVisaDocument.url.startsWith('http') || application.approvedVisaDocument.url.startsWith('blob:'))
+                                                ? application.approvedVisaDocument.url
+                                                : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '')}${application.approvedVisaDocument.url.startsWith('/') ? '' : '/'}${application.approvedVisaDocument.url}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="flex-1 bg-indigo-600 text-white text-xs font-bold py-2.5 rounded-xl hover:bg-indigo-700 transition-all flex items-center justify-center shadow-lg shadow-indigo-200 hover:shadow-indigo-300 hover:-translate-y-0.5"
+                                        >
+                                            <Download size={16} className="mr-1.5" /> Download Visa
+                                        </a>
+                                    ) : (
+                                        <button disabled className="flex-1 bg-gray-50 text-gray-400 text-xs font-bold py-2.5 rounded-xl border border-gray-100 flex items-center justify-center cursor-not-allowed opacity-60">
+                                            <Download size={16} className="mr-1.5" /> Unavailable
+                                        </button>
+                                    )}
 
-                            <Link
-                                to={`/dashboard/applications`}
-                                className="px-4 py-2.5 bg-white border-2 border-gray-100 text-gray-600 text-xs font-bold rounded-xl hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all text-center flex items-center justify-center"
-                            >
-                                Details
-                            </Link>
+                                    <Link
+                                        to={`/dashboard/applications/${application.applicationId}`}
+                                        className="px-4 py-2.5 bg-white border-2 border-gray-100 text-gray-600 text-xs font-bold rounded-xl hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300 transition-all text-center flex items-center justify-center"
+                                    >
+                                        Details
+                                    </Link>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>

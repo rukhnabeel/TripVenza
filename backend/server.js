@@ -26,6 +26,57 @@ app.use(morgan('dev'));
 
 // Serve static files (uploaded documents)
 const path = require('path');
+
+const axios = require('axios');
+
+// Fix for legacy Cloudinary images saved with local paths
+app.get('/uploads/tripvenza_docs/:filename', async (req, res) => {
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    if (cloudName) {
+        // Construct Cloudinary URL
+        // Try without extension first (matches current public_ids)
+        const cloudUrl = `https://res.cloudinary.com/${cloudName}/image/upload/tripvenza_docs/${req.params.filename}`;
+
+        // Helper to fetch with checking
+        const fetchFromCloud = async (url) => {
+            return axios({
+                method: 'get',
+                url: url,
+                responseType: 'stream',
+                validateStatus: (status) => status < 500 // Accept 404/401 to handle manually, ignore server errors
+            });
+        };
+
+        try {
+            let response = await fetchFromCloud(cloudUrl);
+
+            // If 404, try with .pdf extension
+            if (response.status === 404) {
+                response = await fetchFromCloud(cloudUrl + '.pdf');
+            }
+
+            // If still 404, give up
+            if (response.status === 404) {
+                return res.status(404).send('File not found');
+            }
+
+            // We stream whatever we got (200, 401, etc) as long as it's not 404
+            // Forward headers (Content-Type is important)
+            res.setHeader('Content-Type', response.headers['content-type']);
+
+            // Force 200 OK for the client to ensure browser displays it
+            res.status(200);
+            response.data.pipe(res);
+
+        } catch (error) {
+            console.error('Proxy Error:', error.message);
+            res.status(404).send('File not found');
+        }
+    } else {
+        res.status(404).send('File not found');
+    }
+});
+
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
@@ -37,7 +88,13 @@ const walletRoutes = require('./routes/walletRoutes');
 const ocrRoutes = require('./routes/ocrRoutes');
 const documentRoutes = require('./routes/documentRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
+
 const countryRoutes = require('./routes/countryRoutes');
+const systemRoutes = require('./routes/systemRoutes');
+const maintenanceMiddleware = require('./middleware/maintenanceMiddleware');
+
+// Valid for all routes
+app.use(maintenanceMiddleware);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/visa', visaRoutes);
@@ -49,6 +106,7 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/countries', countryRoutes);
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/payment', require('./routes/paymentRoutes'));
+app.use('/api/system', systemRoutes);
 
 app.get('/', (req, res) => {
     res.send('API is running...');

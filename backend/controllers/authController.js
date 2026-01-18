@@ -73,6 +73,14 @@ exports.registerUser = async (req, res) => {
             };
         }
 
+        if (req.files['ownerPhoto']) {
+            documents.ownerPhoto = {
+                url: `/uploads/${req.files['ownerPhoto'][0].filename}`,
+                uploadedAt: currentDate,
+                verified: false
+            };
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -194,7 +202,12 @@ exports.sendOtp = async (req, res) => {
             console.log(`[OTP] Mobile OTP for ${identifier}: ${otpCode}`);
         }
 
-        res.json({ message: 'OTP sent successfully' });
+        // Return OTP in response for dev/mobile mock
+        res.json({
+            message: 'OTP sent successfully',
+            // TODO: Remove this in production!
+            devOtp: otpCode
+        });
     } catch (error) {
         console.error('Send OTP Error:', error);
         res.status(500).json({ message: error.message });
@@ -274,6 +287,107 @@ exports.getMe = async (req, res) => {
         res.json(user);
     } catch (error) {
         console.error('Get Me Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Forgot Password - Send OTP
+// @route   POST /api/auth/forgot-password
+// @access  Public
+exports.forgotPassword = async (req, res) => {
+    try {
+        const { email } = req.body;
+        const user = await User.findOne({ email });
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Generate 6 digit OTP
+        const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+        // Save OTP with type 'password_reset'
+        await OTP.findOneAndUpdate(
+            { identifier: email, type: 'password_reset' },
+            { otp: otpCode, verified: false, createdAt: Date.now() },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #DC2626;">Reset Your Password</h2>
+                <p>You requested a password reset for your TripVenza account.</p>
+                <p>Your password reset code is:</p>
+                <div style="background-color: #FEF2F2; padding: 15px; border-radius: 8px; text-align: center; font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #DC2626; border: 1px solid #FECACA;">
+                    ${otpCode}
+                </div>
+                <p style="color: #6B7280; font-size: 14px; margin-top: 20px;">This code is valid for 5 minutes. If you didn't request this, please ignore this email.</p>
+            </div>
+        `;
+
+        const emailSent = await sendEmail(email, 'Reset Password - TripVenza', emailHtml);
+
+        // Log for dev/test even if email fails (mock mode)
+        console.log(`🔐 [RESET OTP] Code for ${email}: ${otpCode}`);
+
+        res.json({ message: 'Password reset OTP sent to email' });
+
+    } catch (error) {
+        console.error('Forgot Password Error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Reset Password - Verify OTP and Update Password
+// @route   POST /api/auth/reset-password
+// @access  Public
+exports.resetPassword = async (req, res) => {
+    try {
+        const { email, otp, newPassword } = req.body;
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ message: 'Password must be at least 6 characters' });
+        }
+
+        // Verify OTP
+        const otpRecord = await OTP.findOne({ identifier: email, type: 'password_reset' });
+
+        if (!otpRecord) {
+            return res.status(400).json({ message: 'Invalid or expired reset request' });
+        }
+
+        if (otpRecord.otp !== otp) {
+            return res.status(400).json({ message: 'Invalid OTP code' });
+        }
+
+        // Find User
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        // Update Password
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        await user.save();
+
+        // Delete OTP record after successful reset to prevent reuse
+        await OTP.deleteOne({ _id: otpRecord._id });
+
+        // Send Confirmation Email
+        const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2 style="color: #059669;">Password Changed</h2>
+                <p>Your TripVenza account password has been successfully reset.</p>
+                <p>If you did not perform this action, please contact support immediately.</p>
+            </div>
+        `;
+        await sendEmail(email, 'Password Changed Successfully - TripVenza', emailHtml);
+
+        res.json({ message: 'Password reset successful. Please login with new password.' });
+
+    } catch (error) {
+        console.error('Reset Password Error:', error);
         res.status(500).json({ message: error.message });
     }
 };

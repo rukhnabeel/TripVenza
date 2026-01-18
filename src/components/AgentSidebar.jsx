@@ -13,7 +13,9 @@ import {
     Lock
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
+
 import { logout } from '../store/slices/authSlice';
+import logo from '../assets/tripvenza_logo.png';
 
 const AgentSidebar = ({ isOpen, onClose }) => {
     const dispatch = useDispatch();
@@ -53,10 +55,12 @@ const AgentSidebar = ({ isOpen, onClose }) => {
                 ${isOpen ? 'translate-x-0' : '-translate-x-full'} 
                 md:translate-x-0
             `}>
-                <div className="p-6 border-b border-gray-100">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                        TripVenza B2B
-                    </h2>
+                <div className="p-6 border-b border-gray-100 flex justify-center">
+                    <img
+                        src={logo}
+                        alt="TripVenza Logo"
+                        className="h-12 w-auto object-contain"
+                    />
                     <div className="mt-4 flex items-center space-x-3">
                         <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
                             {user?.name?.charAt(0) || 'A'}

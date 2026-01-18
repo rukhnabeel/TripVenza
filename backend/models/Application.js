@@ -94,7 +94,7 @@ const applicationSchema = new mongoose.Schema({
     // Status & Tracking
     status: {
         type: String,
-        enum: ['Pending', 'Submitted', 'Processing', 'Need More Info', 'Approved', 'Rejected', 'Partially Approved'],
+        enum: ['Draft', 'Pending', 'Submitted', 'Processing', 'Need More Info', 'Approved', 'Rejected', 'Partially Approved'],
         default: 'Pending'
     },
 

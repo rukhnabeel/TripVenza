@@ -144,6 +144,30 @@ const importData = async () => {
             currency: 'INR'
         });
 
+        // Create Admin User
+        await User.create({
+            name: 'Super Admin',
+            email: 'admin@tripvenza.com',
+            phone: '+919999999999',
+            password: await bcrypt.hash('password123', 10),
+            agencyName: 'TripVenza HQ',
+            agencyType: 'Corporate',
+            panNumber: 'ADMIN1234X',
+            address: {
+                street: 'HQ St',
+                city: 'Dubai',
+                state: 'Dubai',
+                zip: '00000',
+                country: 'United Arab Emirates'
+            },
+            isVerified: true,
+            kycStatus: 'Approved',
+            walletBalance: 1000000,
+            role: 'admin',
+            tier: 'Platinum',
+            currency: 'INR'
+        });
+
         // Create Seed Application (UAE 30 Days)
         const uae = await Country.findOne({ code: 'AE' });
         const visa = uae.visaTypes[0]; // 30 Days
@@ -179,6 +203,9 @@ const importData = async () => {
         console.log('✅ Data Imported Successfully!');
         console.log('\n📧 Test Login Credentials:');
         console.log('Email: agent@tripvenza.com');
+        console.log('Password: password123');
+        console.log('\n👑 Admin Credentials:');
+        console.log('Email: admin@tripvenza.com');
         console.log('Password: password123');
         console.log(`\n💰 Wallet Balance: ₹${testUser.walletBalance}\n`);
 

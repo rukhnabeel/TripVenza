@@ -1,6 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Transaction = require('../models/Transaction');
 
 // Initialize Razorpay
 // Note: In production, these should be checked. For now, we allow app to start even if missing, but calls will fail.
@@ -78,6 +79,19 @@ exports.verifyPayment = async (req, res) => {
             // Let's check schemas later. For now, just update balance.
 
             await user.save();
+
+            // Create Transaction Record
+            await Transaction.create({
+                user: user._id,
+                amount: topUpAmount,
+                type: 'Credit',
+                category: 'Deposit',
+                description: 'Wallet Top-up (Razorpay)',
+                status: 'Success',
+                referenceId: razorpay_payment_id,
+                paymentMethod: 'Gateway',
+                balanceAfter: user.walletBalance
+            });
 
             res.json({
                 success: true,

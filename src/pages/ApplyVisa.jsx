@@ -1,489 +1,480 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Upload, X, Plus, User as UserIcon, FileText, ChevronRight, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, Shield, Info, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSelector } from 'react-redux';
 import api from '../utils/api';
 import OCRUpload from '../components/OCRUpload';
 import DocumentUploader from '../components/DocumentUploader';
-import SimpleUploader from '../components/SimpleUploader';
 import { indianStates } from '../data/indianStates';
 
 const ApplyVisa = () => {
     const location = useLocation();
     const navigate = useNavigate();
-    const { country, visa } = location.state || {};
-
-    const [applicants, setApplicants] = useState([{
-        firstName: '', lastName: '', passportNumber: '',
-        passportExpiry: '', dateOfBirth: '', nationality: '', gender: '',
-        placeOfBirth: '', dateOfIssue: '', placeOfIssue: '',
-        fatherName: '', motherName: '', maritalStatus: '',
-        addressLine1: '',
-        addressLine2: '',
-        city: '',
-        state: '',
-        pinCode: '',
-        documents: { passportFront: '', passportBack: '', passportCover: '', tickets: '', hotel: '', photo: '' }
-    }]);
-
+    const { user } = useSelector(state => state.auth);
+    const { country, visa } = location.state || {}; // Expecting country and visa objects
     const [loading, setLoading] = useState(false);
 
-    // Redirect if accessed directly without selection
-    if (!country || !visa) {
-        return (
-            <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center">
-                <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
-                    <AlertCircle size={32} />
-                </div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">No Visa Selected</h2>
-                <p className="text-gray-500 mb-6">Please select a country and visa type to proceed.</p>
-                <button
-                    onClick={() => navigate('/dashboard/new-visa')}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-colors"
-                >
-                    Browse Visas
-                </button>
-            </div>
-        );
-    }
+    // Form State
+    const [applicationType, setApplicationType] = useState('Individual'); // Individual or Group
+    const [groupName, setGroupName] = useState('');
+    const [internalId, setInternalId] = useState('');
 
-    const handleApplicantChange = (index, field, value) => {
-        const updated = [...applicants];
-        updated[index][field] = value;
-        setApplicants(updated);
+    // Travelers State
+    const [travelers, setTravelers] = useState([{
+        id: Date.now(),
+        isOpen: true, // For accordion behavior
+        documents: { passportFront: '', passportBack: '', photo: '' },
+        firstName: '', lastName: '', passportNumber: '',
+        nationality: 'India', gender: '', dateOfBirth: '',
+        placeOfBirth: '', placeOfIssue: '', dateOfIssue: '', passportExpiry: '',
+        maritalStatus: '', fatherName: '', motherName: '',
+        addressLine1: '', state: '', city: '', pinCode: ''
+    }]);
+
+    // Derived State
+    const totalAmount = (visa?.totalFee || 0) * travelers.length;
+    const canPay = (user?.walletBalance || 0) >= totalAmount;
+
+    useEffect(() => {
+        if (!country || !visa) {
+            navigate('/dashboard/new-visa');
+        }
+        window.scrollTo(0, 0);
+    }, [country, visa, navigate]);
+
+    if (!country || !visa) return null;
+
+    // Handlers
+    const toggleTraveler = (index) => {
+        const updated = [...travelers];
+        updated[index].isOpen = !updated[index].isOpen;
+        setTravelers(updated);
     };
 
-    const addApplicant = () => {
-        setApplicants([...applicants, {
+    const updateTraveler = (index, field, value) => {
+        const updated = [...travelers];
+        if (field.includes('.')) {
+            const [parent, child] = field.split('.');
+            updated[index][parent][child] = value;
+        } else {
+            updated[index][field] = value;
+        }
+        setTravelers(updated);
+    };
+
+    const addTraveler = () => {
+        setTravelers([...travelers, {
+            id: Date.now(),
+            isOpen: true,
+            documents: { passportFront: '', passportBack: '', photo: '' },
             firstName: '', lastName: '', passportNumber: '',
-            passportExpiry: '', dateOfBirth: '', nationality: '', gender: '',
-            placeOfBirth: '', dateOfIssue: '', placeOfIssue: '',
-            fatherName: '', motherName: '', maritalStatus: '',
-            addressLine1: '', addressLine2: '', city: '', state: '', pinCode: '',
-            documents: { passportFront: '', passportBack: '', passportCover: '', tickets: '', hotel: '', photo: '' }
+            nationality: 'India', gender: '', dateOfBirth: '',
+            placeOfBirth: '', placeOfIssue: '', dateOfIssue: '', passportExpiry: '',
+            maritalStatus: '', fatherName: '', motherName: '',
+            addressLine1: '', state: '', city: '', pinCode: ''
         }]);
     };
 
-    const removeApplicant = (index) => {
-        if (applicants.length > 1) {
-            const updated = applicants.filter((_, i) => i !== index);
-            setApplicants(updated);
+    const removeTraveler = (index) => {
+        if (travelers.length > 1) {
+            const updated = travelers.filter((_, i) => i !== index);
+            setTravelers(updated);
         }
     };
 
-    // Helper to ensure dates are consistent (DD/MM/YYYY)
-    const normalizeDate = (dateStr) => {
-        if (!dateStr) return '';
-        const isoMatch = dateStr.match(/^(\d{4})[\/-](\d{2})[\/-](\d{2})$/);
-        if (isoMatch) {
-            return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
-        }
-        return dateStr;
-    };
-
-    // Handle OCR extracted data
+    // OCR Handler
     const handleOCRData = (ocrResult, index) => {
-        const extractedData = ocrResult.data || ocrResult;
+        const extracted = ocrResult.data || ocrResult;
         const filePath = ocrResult.filePath;
-        const updated = [...applicants];
+        const updated = [...travelers];
 
+        // Update Document Path
         if (filePath) {
-            const documentType = ocrResult.documentType || 'passport';
-            const isBackPage = documentType === 'passport-back';
-            updated[index].documents = {
-                ...updated[index].documents,
-                [isBackPage ? 'passportBack' : 'passportFront']: filePath
-            };
+            const type = ocrResult.documentType === 'passport-back' ? 'passportBack' : 'passportFront';
+            updated[index].documents[type] = filePath;
+        }
+        if (extracted.faceImage || ocrResult.faceImage) {
+            updated[index].documents.photo = extracted.faceImage || ocrResult.faceImage;
         }
 
-        if (extractedData.faceImage || ocrResult.faceImage) {
-            updated[index].documents.photo = extractedData.faceImage || ocrResult.faceImage;
-        }
-
-        // Map fields
-        const fieldMap = {
+        // Map Fields
+        const map = {
             firstName: 'firstName', lastName: 'lastName', passportNumber: 'passportNumber',
             nationality: 'nationality', placeOfBirth: 'placeOfBirth', placeOfIssue: 'placeOfIssue',
-            maritalStatus: 'maritalStatus', fatherName: 'fatherName', motherName: 'motherName',
-            address: 'addressLine1' // Basic mapping for address
+            maritalStatus: 'maritalStatus', fatherName: 'fatherName', motherName: 'motherName'
         };
 
-        Object.keys(fieldMap).forEach(key => {
-            if (extractedData[key]) updated[index][fieldMap[key]] = extractedData[key];
+        Object.keys(map).forEach(k => {
+            if (extracted[k]) updated[index][map[k]] = extracted[k];
         });
 
-        // Date fields
-        if (extractedData.dateOfBirth) updated[index].dateOfBirth = normalizeDate(extractedData.dateOfBirth);
-        if (extractedData.passportExpiry) updated[index].passportExpiry = normalizeDate(extractedData.passportExpiry);
-        if (extractedData.dateOfIssue) updated[index].dateOfIssue = normalizeDate(extractedData.dateOfIssue);
+        // Date Normalization (DD/MM/YYYY)
+        const fixDate = (d) => {
+            if (!d) return '';
+            const iso = d.match(/^(\d{4})[\/-](\d{2})[\/-](\d{2})$/);
+            return iso ? `${iso[3]}/${iso[2]}/${iso[1]}` : d;
+        };
+        ['dateOfBirth', 'passportExpiry', 'dateOfIssue'].forEach(f => {
+            if (extracted[f]) updated[index][f] = fixDate(extracted[f]);
+        });
 
-        if (extractedData.gender) {
-            const g = extractedData.gender.toUpperCase();
+        if (extracted.gender) {
+            const g = extracted.gender.toUpperCase();
             updated[index].gender = (g === 'M' || g === 'MALE') ? 'Male' : (g === 'F' || g === 'FEMALE') ? 'Female' : 'Other';
         }
 
-        setApplicants(updated);
+        updated[index].isOpen = true; // Keep open to review
+        setTravelers(updated);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        // Validate Applicants
-        for (let i = 0; i < applicants.length; i++) {
-            const app = applicants[i];
-            const missingFields = [];
-            const requiredFields = [
-                { k: 'firstName', L: 'First Name' }, { k: 'lastName', L: 'Last Name' },
-                { k: 'gender', L: 'Gender' }, { k: 'maritalStatus', L: 'Marital Status' },
-                { k: 'nationality', L: 'Nationality' }, { k: 'dateOfBirth', L: 'Date of Birth' },
-                { k: 'placeOfBirth', L: 'Place of Birth' },
-                { k: 'passportNumber', L: 'Passport Number' }, { k: 'placeOfIssue', L: 'Place of Issue' },
-                { k: 'dateOfIssue', L: 'Date of Issue' }, { k: 'passportExpiry', L: 'Passport Expiry' },
-                { k: 'fatherName', L: "Father's Name" }, { k: 'motherName', L: "Mother's Name" },
-                { k: 'addressLine1', L: 'Address Line 1' }, { k: 'state', L: 'State' },
-                { k: 'city', L: 'City' }, { k: 'pinCode', L: 'PIN Code' }
-            ];
-
-            requiredFields.forEach(field => {
-                if (!app[field.k]) missingFields.push(field.L);
-            });
-
-            const docs = app.documents;
-            if (!docs.passportFront) missingFields.push('Passport Front');
-            if (!docs.passportBack) missingFields.push('Passport Back');
-            if (!docs.photo) missingFields.push('Applicant Photo');
-
-            if (missingFields.length > 0) {
-                alert(`Traveler #${i + 1} is missing details:\n- ${missingFields.join('\n- ')}`);
+    const handleSubmit = async () => {
+        // Basic Validation
+        for (let i = 0; i < travelers.length; i++) {
+            const t = travelers[i];
+            if (!t.documents.passportFront || !t.documents.photo) {
+                alert(`Traveler ${i + 1}: Please upload Passport Front and Photo.`);
+                return;
+            }
+            if (!t.firstName || !t.passportNumber) {
+                alert(`Traveler ${i + 1}: Please review personal details (Name, Passport No).`);
                 return;
             }
         }
 
-        const formattedApplicants = applicants.map(app => {
-            const formatDateForBackend = (dateStr) => {
-                if (!dateStr) return null;
-                const parts = dateStr.split('/');
-                if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                return dateStr;
+        if (!canPay) {
+            alert("Insufficient wallet balance. Please add funds.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Format dates for backend (YYYY-MM-DD)
+            const formattedApplicants = travelers.map(app => {
+                const toBackendDate = (d) => {
+                    if (!d) return null;
+                    const parts = d.split('/');
+                    return parts.length === 3 ? `${parts[2]}-${parts[1]}-${parts[0]}` : d;
+                };
+                return {
+                    ...app,
+                    dateOfBirth: toBackendDate(app.dateOfBirth),
+                    dateOfIssue: toBackendDate(app.dateOfIssue),
+                    passportExpiry: toBackendDate(app.passportExpiry)
+                };
+            });
+
+            const payload = {
+                countryId: country._id,
+                visaType: visa.type,
+                applicants: formattedApplicants,
+                totalInfos: { groupName, internalId, applicationType }
             };
 
-            return {
-                ...app,
-                dateOfBirth: formatDateForBackend(app.dateOfBirth),
-                dateOfIssue: formatDateForBackend(app.dateOfIssue),
-                passportExpiry: formatDateForBackend(app.passportExpiry)
-            };
-        });
+            // Redirect to Payment/Processing logic (reusing existing payment flow or direct deduct)
+            navigate('/dashboard/payment', {
+                state: {
+                    payload: payload,
+                    countryName: country.name,
+                    totalAmount: totalAmount
+                }
+            });
 
-        const payload = {
-            countryId: country._id,
-            visaType: visa.type,
-            applicants: formattedApplicants,
-            totalInfos: {}
-        };
-
-        navigate('/dashboard/payment', {
-            state: {
-                payload: payload,
-                countryName: country.name,
-                totalAmount: visa.totalFee * applicants.length
-            }
-        });
+        } catch (error) {
+            console.error(error);
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-24">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 bg-white p-8 rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 relative overflow-hidden">
-                <div className="relative z-10">
-                    <button
-                        onClick={() => navigate(-1)}
-                        className="text-gray-400 hover:text-blue-600 font-medium flex items-center mb-4 transition-colors"
-                    >
-                        <ArrowLeft size={16} className="mr-2" /> Back
-                    </button>
-                    <div className="flex items-center gap-4">
-                        <img src={country.flag} alt={country.name} className="w-16 h-10 object-cover rounded shadow-sm border border-gray-100" />
-                        <div>
-                            <h1 className="text-3xl font-black text-gray-900 font-display">{country.name} Valid Application</h1>
-                            <p className="text-gray-500 font-medium flex items-center mt-1">
-                                <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-sm font-bold mr-2">{visa.type}</span>
-                                {applicants.length} Applicant{applicants.length > 1 ? 's' : ''}
-                            </p>
+        <div className="min-h-screen bg-gray-50/50 pb-20 font-sans">
+            {/* Top Bar / Context */}
+            <div className="bg-white border-b border-gray-200 sticky top-0 z-30 px-6 py-4 shadow-sm">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+                    <div className="flex items-center gap-4 text-sm font-medium text-gray-600">
+                        <div className="flex flex-col">
+                            <span className="text-xs text-gray-400 font-bold uppercase">Citizen of</span>
+                            <span className="text-gray-900 font-bold">India</span>
+                        </div>
+                        <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                        <div className="flex flex-col">
+                            <span className="text-xs text-gray-400 font-bold uppercase">Going to</span>
+                            <span className="text-blue-600 font-bold flex items-center gap-1">
+                                {country.name} <ChevronDown size={14} />
+                            </span>
+                        </div>
+                        <div className="h-8 w-px bg-gray-200 mx-2"></div>
+                        <div className="flex flex-col">
+                            <span className="text-xs text-gray-400 font-bold uppercase">Visa Type</span>
+                            <span className="text-gray-900 font-bold text-xs md:text-sm truncate max-w-[200px]">{visa.type}</span>
                         </div>
                     </div>
                 </div>
-
-                <div className="text-right relative z-10 bg-gray-50/80 p-4 rounded-2xl backdrop-blur-sm border border-gray-100">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Total Payable</p>
-                    <p className="text-4xl font-black text-blue-600 font-display">₹{(visa.totalFee * applicants.length).toLocaleString()}</p>
-                </div>
-
-                <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-full blur-3xl opacity-50 -translate-y-1/2 translate-x-1/3"></div>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-8" noValidate>
-                <AnimatePresence mode="popLayout">
-                    {applicants.map((applicant, index) => (
-                        <motion.div
-                            key={index}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            transition={{ delay: index * 0.1 }}
-                            className="bg-white rounded-3xl shadow-lg shadow-gray-200/50 border border-gray-100 overflow-hidden"
-                        >
-                            {/* Applicant Header */}
-                            <div className="bg-gray-50/50 px-8 py-5 border-b border-gray-100 flex justify-between items-center">
-                                <h3 className="text-lg font-bold text-gray-800 flex items-center">
-                                    <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold mr-3 shadow-sm shadow-blue-200">
-                                        {index + 1}
-                                    </div>
-                                    Traveler Details
-                                </h3>
-                                {applicants.length > 1 && (
-                                    <button type="button" onClick={() => removeApplicant(index)} className="text-red-500 hover:bg-red-50 p-2 rounded-xl transition-colors flex items-center text-sm font-bold">
-                                        <X size={16} className="mr-2" /> Remove
+            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+                    {/* LEFT COLUMN - FORM */}
+                    <div className="lg:col-span-8 space-y-6">
+                        {/* Application Type */}
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                            <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide mb-4">Are You Applying For</h3>
+                            <div className="flex gap-4">
+                                {['Individual', 'Group'].map(type => (
+                                    <button
+                                        key={type}
+                                        onClick={() => setApplicationType(type)}
+                                        className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all border-2 ${applicationType === type
+                                                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                                : 'border-transparent bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        {type}
                                     </button>
-                                )}
+                                ))}
                             </div>
 
-                            <div className="p-8">
-                                {/* SECTION 1: Required Documents */}
-                                <div className="mb-10">
-                                    <div className="flex items-center mb-6">
-                                        <div className="w-1 h-6 bg-blue-600 rounded-full mr-3"></div>
-                                        <h4 className="text-lg font-bold text-gray-900">Required Documents</h4>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        {/* Passport Front */}
-                                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Passport Front</span>
-                                                {applicant.documents.passportFront && <CheckCircle2 size={16} className="text-green-500" />}
-                                            </div>
-                                            <OCRUpload
-                                                onDataExtracted={handleOCRData}
-                                                applicantIndex={index}
-                                                sampleSrc="/samples/sample_passport_front.png"
-                                            />
-                                            <p className="text-[10px] text-gray-400 mt-2 font-medium flex items-center">
-                                                <AlertCircle size={10} className="mr-1" /> Auto-fills details
-                                            </p>
-                                        </div>
-
-                                        {/* Passport Back */}
-                                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Passport Back</span>
-                                                {applicant.documents.passportBack && <CheckCircle2 size={16} className="text-green-500" />}
-                                            </div>
-                                            <OCRUpload
-                                                onDataExtracted={handleOCRData}
-                                                applicantIndex={index}
-                                                sampleSrc="/samples/sample_passport_back.png"
-                                                mode="back"
-                                            />
-                                            <p className="text-[10px] text-gray-400 mt-2 font-medium flex items-center">
-                                                <AlertCircle size={10} className="mr-1" /> Auto-fills address
-                                            </p>
-                                        </div>
-
-                                        {/* Photo */}
-                                        <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                                            <div className="flex justify-between items-start mb-3">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Applicant Photo</span>
-                                                {applicant.documents.photo && <CheckCircle2 size={16} className="text-green-500" />}
-                                            </div>
-                                            <DocumentUploader
-                                                title="Upload Photo"
-                                                sampleSrc="/samples/sample_photo.png"
-                                                initialPreview={applicant.documents.photo}
-                                                documentType="photo"
-                                                validateFace={true}
-                                                onUploadComplete={(path) => {
-                                                    const updated = [...applicants];
-                                                    updated[index].documents.photo = path;
-                                                    setApplicants(updated);
-                                                }}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Optional/Extra Docs */}
-                                    <div className="mt-6 pt-6 border-t border-gray-100 grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <SimpleUploader
-                                            title="Passport Check"
-                                            label="Passport Cover"
-                                            maxSizeMB={2}
-                                            onUploadComplete={(path) => {
-                                                const updated = [...applicants];
-                                                updated[index].documents.passportCover = path;
-                                                setApplicants(updated);
-                                            }}
-                                        />
-                                        <SimpleUploader
-                                            title="Flight Tickets"
-                                            label="Return Tickets"
-                                            accept="application/pdf"
-                                            allowedTypes={['application/pdf']}
-                                            onUploadComplete={(path) => {
-                                                const updated = [...applicants];
-                                                updated[index].documents.tickets = path;
-                                                setApplicants(updated);
-                                            }}
-                                        />
-                                        <SimpleUploader
-                                            title="Accommodation"
-                                            label="Hotel Booking"
-                                            accept="application/pdf"
-                                            allowedTypes={['application/pdf']}
-                                            onUploadComplete={(path) => {
-                                                const updated = [...applicants];
-                                                updated[index].documents.hotel = path;
-                                                setApplicants(updated);
-                                            }}
+                            {/* Optional Group Fields */}
+                            {applicationType === 'Group' && (
+                                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="mt-4 grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Internal ID</label>
+                                        <input
+                                            type="text"
+                                            value={internalId}
+                                            onChange={(e) => setInternalId(e.target.value)}
+                                            className="w-full mt-1 p-3 bg-gray-50 rounded-lg text-sm font-medium border-none focus:ring-2 focus:ring-blue-100"
+                                            placeholder="Optional"
                                         />
                                     </div>
-                                </div>
-
-                                {/* SECTION 2: Personal Information */}
-                                <div>
-                                    <div className="flex items-center mb-6">
-                                        <div className="w-1 h-6 bg-blue-600 rounded-full mr-3"></div>
-                                        <h4 className="text-lg font-bold text-gray-900">Personal Information</h4>
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-500 uppercase">Group Name</label>
+                                        <input
+                                            type="text"
+                                            value={groupName}
+                                            onChange={(e) => setGroupName(e.target.value)}
+                                            className="w-full mt-1 p-3 bg-gray-50 rounded-lg text-sm font-medium border-none focus:ring-2 focus:ring-blue-100"
+                                            placeholder="Family Vacation etc."
+                                        />
                                     </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {[
-                                            { label: 'First Name', field: 'firstName', placeholder: 'As on passport' },
-                                            { label: 'Last Name', field: 'lastName', placeholder: 'Surname' },
-                                            { label: 'Gender', field: 'gender', placeholder: 'Male / Female' },
-                                            { label: 'Marital Status', field: 'maritalStatus', placeholder: 'Single / Married' },
-                                            { label: 'Nationality', field: 'nationality', placeholder: 'e.g. Indian' },
-                                            { label: 'Date of Birth', field: 'dateOfBirth', placeholder: 'DD/MM/YYYY' },
-                                            { label: 'Place of Birth', field: 'placeOfBirth', placeholder: 'City / State' },
-                                        ].map((item, i) => (
-                                            <div key={i} className="group">
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-blue-600 transition-colors">{item.label}</label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all placeholder-gray-400"
-                                                    placeholder={item.placeholder}
-                                                    value={applicant[item.field]}
-                                                    onChange={(e) => handleApplicantChange(index, item.field, e.target.value)}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-
-                                    <div className="my-8 border-t border-gray-100"></div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                        {[
-                                            { label: 'Passport Number', field: 'passportNumber', placeholder: 'X1234567' },
-                                            { label: 'Place of Issue', field: 'placeOfIssue', placeholder: 'City / Country' },
-                                            { label: 'Date of Issue', field: 'dateOfIssue', placeholder: 'DD/MM/YYYY' },
-                                            { label: 'Passport Expiry', field: 'passportExpiry', placeholder: 'DD/MM/YYYY' },
-                                            { label: "Father's Name", field: 'fatherName', placeholder: 'Full Name' },
-                                            { label: "Mother's Name", field: 'motherName', placeholder: 'Full Name' },
-                                        ].map((item, i) => (
-                                            <div key={i} className="group">
-                                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 group-hover:text-blue-600 transition-colors">{item.label}</label>
-                                                <input
-                                                    type="text"
-                                                    required
-                                                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all placeholder-gray-400"
-                                                    placeholder={item.placeholder}
-                                                    value={applicant[item.field]}
-                                                    onChange={(e) => handleApplicantChange(index, item.field, e.target.value)}
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-
-
-                                    <div className="my-8 border-t border-gray-100"></div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address Line 1</label>
-                                            <input type="text" required className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all" value={applicant.addressLine1} onChange={(e) => handleApplicantChange(index, 'addressLine1', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Address Line 2</label>
-                                            <input type="text" required className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all" value={applicant.addressLine2} onChange={(e) => handleApplicantChange(index, 'addressLine2', e.target.value)} />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">State</label>
-                                            <select
-                                                required
-                                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer"
-                                                value={applicant.state || ''}
-                                                onChange={(e) => {
-                                                    handleApplicantChange(index, 'state', e.target.value);
-                                                    handleApplicantChange(index, 'city', '');
-                                                }}
-                                            >
-                                                <option value="">Select State</option>
-                                                {indianStates.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">City/District</label>
-                                            <select
-                                                required
-                                                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer disabled:opacity-50"
-                                                value={applicant.city || ''}
-                                                onChange={(e) => handleApplicantChange(index, 'city', e.target.value)}
-                                                disabled={!applicant.state}
-                                            >
-                                                <option value="">{applicant.state ? 'Select District' : 'Select State First'}</option>
-                                                {applicant.state && indianStates.find(s => s.name === applicant.state)?.districts.map(d => (
-                                                    <option key={d} value={d}>{d}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">PIN Code</label>
-                                            <input type="text" required maxLength="6" className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl font-medium text-gray-900 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all" value={applicant.pinCode} onChange={(e) => handleApplicantChange(index, 'pinCode', e.target.value)} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </motion.div>
-                    ))}
-                </AnimatePresence>
-
-                <div className="flex justify-center">
-                    <button type="button" onClick={addApplicant} className="flex items-center px-6 py-3 bg-white border border-gray-200 text-blue-600 font-bold rounded-xl shadow-sm hover:bg-blue-50 transition-all hover:scale-105">
-                        <Plus size={20} className="mr-2" /> Add Another Traveler
-                    </button>
-                </div>
-
-                {/* Sticky Action Footer */}
-                <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-lg border-t border-gray-100 shadow-2xl z-50 md:pl-72 lg:pl-80">
-                    <div className="max-w-7xl mx-auto flex items-center justify-between">
-                        <div className="hidden md:block">
-                            <p className="text-xs font-bold text-gray-500 uppercase">Total Amount</p>
-                            <p className="text-2xl font-black text-gray-900 font-display">₹{(visa.totalFee * applicants.length).toLocaleString()}</p>
+                                </motion.div>
+                            )}
                         </div>
+
+                        {/* TRAVELERS LIST */}
+                        {travelers.map((traveler, index) => (
+                            <div key={traveler.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden transition-all duration-300">
+                                {/* Accordion Header */}
+                                <div
+                                    onClick={() => toggleTraveler(index)}
+                                    className={`px-6 py-4 flex justify-between items-center cursor-pointer ${traveler.isOpen ? 'bg-gray-50 border-b border-gray-100' : 'bg-white'}`}
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
+                                            {index + 1}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-gray-900">Traveler {index + 1}</h3>
+                                            {!traveler.isOpen && traveler.firstName && (
+                                                <p className="text-xs text-gray-500">{traveler.firstName} {traveler.lastName} - {traveler.passportNumber}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        {travelers.length > 1 && (
+                                            <button onClick={(e) => { e.stopPropagation(); removeTraveler(index); }} className="p-2 text-gray-400 hover:text-red-500 transition-colors">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        )}
+                                        {traveler.isOpen ? <ChevronUp size={20} className="text-gray-400" /> : <ChevronDown size={20} className="text-gray-400" />}
+                                    </div>
+                                </div>
+
+                                {/* Accordion Body */}
+                                <AnimatePresence>
+                                    {traveler.isOpen && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="p-6 space-y-8"
+                                        >
+                                            {/* Passport Upload Section */}
+                                            <div className="bg-blue-50/50 rounded-xl p-5 border border-blue-100">
+                                                <div className="flex items-start gap-4 mb-4">
+                                                    <Shield className="text-blue-600 w-5 h-5 mt-1 shrink-0" />
+                                                    <div>
+                                                        <h4 className="font-bold text-gray-900">Upload Traveler's Front Passport Page</h4>
+                                                        <p className="text-sm text-gray-600 mt-1 leading-relaxed">
+                                                            Upload a clear passport image and <span className="font-bold text-blue-600">Drag & Drop</span> your details will be filled automatically.
+                                                            OCR is 99.9% accurate. Review mandatory.
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <OCRUpload
+                                                        onDataExtracted={handleOCRData}
+                                                        applicantIndex={index}
+                                                        sampleSrc="/samples/sample_passport_front.png"
+                                                    />
+                                                    <OCRUpload
+                                                        onDataExtracted={handleOCRData}
+                                                        applicantIndex={index}
+                                                        sampleSrc="/samples/sample_passport_back.png"
+                                                        mode="back"
+                                                        label="Passport Back (Optional)"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Form Fields - Grid */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                                                {[
+                                                    { l: 'Passport Number', k: 'passportNumber' },
+                                                    { l: 'First Name', k: 'firstName' },
+                                                    { l: 'Last Name', k: 'lastName' },
+                                                    { l: 'Nationality', k: 'nationality' },
+                                                    { l: 'Sex', k: 'gender', type: 'select', opts: ['Male', 'Female', 'Other'] },
+                                                    { l: 'Date of Birth', k: 'dateOfBirth' },
+                                                    { l: 'Place of Birth', k: 'placeOfBirth' },
+                                                    { l: 'Date of Issue', k: 'dateOfIssue' },
+                                                    { l: 'Date of Expiry', k: 'passportExpiry' },
+                                                    { l: 'Marital Status', k: 'maritalStatus', type: 'select', opts: ['Single', 'Married', 'Other'] },
+                                                    { l: 'Father Name', k: 'fatherName' },
+                                                    { l: 'Mother Name', k: 'motherName' },
+                                                ].map((f, i) => (
+                                                    <div key={i} className={f.full ? "col-span-full" : ""}>
+                                                        <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">{f.l}</label>
+                                                        {f.type === 'select' ? (
+                                                            <select
+                                                                className="w-full p-3 bg-gray-50 border-none rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-blue-200"
+                                                                value={traveler[f.k]}
+                                                                onChange={(e) => updateTraveler(index, f.k, e.target.value)}
+                                                            >
+                                                                <option value="">Select</option>
+                                                                {f.opts.map(o => <option key={o} value={o}>{o}</option>)}
+                                                            </select>
+                                                        ) : (
+                                                            <input
+                                                                type="text"
+                                                                className="w-full p-3 bg-gray-50 border-none rounded-lg text-sm font-medium text-gray-900 focus:ring-2 focus:ring-blue-200 placeholder-gray-400"
+                                                                value={traveler[f.k]}
+                                                                onChange={(e) => updateTraveler(index, f.k, e.target.value)}
+                                                                placeholder={f.l}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Photo Upload */}
+                                            <div className="border-t border-gray-100 pt-6">
+                                                <h4 className="font-bold text-gray-900 mb-2">Upload Traveler Photo</h4>
+                                                <p className="text-sm text-gray-500 mb-4">We will resize the photo for you as per specifications.</p>
+                                                <DocumentUploader
+                                                    documentType="photo"
+                                                    initialPreview={traveler.documents.photo}
+                                                    onUploadComplete={(path) => updateTraveler(index, 'documents.photo', path)}
+                                                />
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        ))}
+
                         <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full md:w-auto px-8 py-4 bg-gray-900 hover:bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-gray-900/20 hover:shadow-blue-600/30 transition-all flex items-center justify-center transform active:scale-95"
+                            onClick={addTraveler}
+                            className="w-full py-4 border-2 border-dashed border-gray-300 rounded-2xl text-gray-500 font-bold hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
                         >
-                            {loading ? 'Processing...' : 'Pay & Submit Application'}
-                            <ChevronRight size={20} className="ml-2" />
+                            <Plus size={20} /> Add Another Traveler
                         </button>
                     </div>
+
+                    {/* RIGHT COLUMN - SUMMARY SIDEBAR */}
+                    <div className="lg:col-span-4">
+                        <div className="sticky top-24 space-y-6">
+                            {/* Visa Info Card */}
+                            <div className="bg-white rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100 overflow-hidden">
+                                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                                    <h3 className="font-black text-gray-900 text-lg">Review and Save</h3>
+                                    <p className="text-sm text-gray-500 mt-1">{country.name} - {visa.type}</p>
+                                </div>
+                                <div className="p-6 space-y-4">
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Travelers</span>
+                                        <span className="font-bold text-gray-900">{travelers.length}</span>
+                                    </div>
+                                    <div className="flex justify-between text-sm">
+                                        <span className="text-gray-500">Processing Time</span>
+                                        <span className="font-bold text-green-600">{visa.processingTime}</span>
+                                    </div>
+
+                                    {/* Mock Dates */}
+                                    {/* <div className="bg-blue-50 rounded-lg p-3 text-xs text-blue-800 font-medium flex gap-2">
+                                        <Info size={14} className="mt-0.5" />
+                                        Expected Approval: <span className="font-bold">Jan 20, 2026</span>
+                                     </div> */}
+
+                                    <div className="py-4 border-t border-b border-gray-100 space-y-3">
+                                        <h4 className="font-bold text-xs text-gray-500 uppercase tracking-wider">Price Details</h4>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-gray-600">Visa Fee ({travelers.length} x ₹{visa.totalFee})</span>
+                                            <span className="font-bold text-gray-900">₹{totalAmount.toLocaleString()}</span>
+                                        </div>
+                                        <div className="flex justify-between text-lg font-black pt-2">
+                                            <span className="text-gray-900">Total</span>
+                                            <span className="text-blue-600">₹{totalAmount.toLocaleString()}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Wallet Check */}
+                                    <div className={`rounded-xl p-4 flex justify-between items-center ${canPay ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+                                        <div>
+                                            <p className="text-xs font-bold uppercase opacity-70">Wallet Balance</p>
+                                            <p className="font-bold">₹{(user?.walletBalance || 0).toLocaleString()}</p>
+                                        </div>
+                                        {!canPay && <AlertCircle size={20} />}
+                                    </div>
+                                </div>
+                                <div className="p-4 bg-gray-50">
+                                    <button
+                                        onClick={handleSubmit}
+                                        disabled={loading || !canPay}
+                                        className={`w-full py-4 rounded-xl font-bold text-white shadow-lg transition-all transform active:scale-95 ${canPay ? 'bg-gray-900 hover:bg-blue-600 shadow-blue-900/20' : 'bg-gray-400 cursor-not-allowed'
+                                            }`}
+                                    >
+                                        {loading ? 'Processing...' : 'Review and Save'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* "Know Before You Pay" */}
+                            <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                                <h4 className="font-bold text-gray-900 mb-4 text-sm">Know Before You Pay</h4>
+                                <ul className="space-y-4">
+                                    <li className="flex gap-3 text-sm text-gray-600">
+                                        <CheckCircle2 size={18} className="text-green-500 shrink-0" />
+                                        <span><strong className="text-gray-900">Auto-validation:</strong> Using our OCR tech to check for common errors.</span>
+                                    </li>
+                                    <li className="flex gap-3 text-sm text-gray-600">
+                                        <CheckCircle2 size={18} className="text-green-500 shrink-0" />
+                                        <span><strong className="text-gray-900">Instant Processing:</strong> Submitted to embassy within 30 seconds.</span>
+                                    </li>
+                                    <li className="flex gap-3 text-sm text-gray-600">
+                                        <AlertCircle size={18} className="text-amber-500 shrink-0" />
+                                        <span><strong className="text-gray-900">Non-refundable:</strong> Fees are paid to government immediately.</span>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
-                {/* Spacer for sticky footer */}
-                <div className="h-24"></div>
-            </form>
+            </div>
         </div>
     );
 };

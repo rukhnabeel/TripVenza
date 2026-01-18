@@ -8,6 +8,7 @@ import api from '../utils/api';
 import { indianData } from '../utils/indianData';
 import { countryCodes } from '../utils/countryCodes';
 import { slugify } from '../utils/helpers';
+import logo from '../assets/tripvenza_logo.png';
 
 const Register = () => {
     const navigate = useNavigate();
@@ -42,7 +43,8 @@ const Register = () => {
         panCard: null,
         aadhaarCard: null,
         gstCertificate: null,
-        addressProof: null
+        addressProof: null,
+        ownerPhoto: null
     });
 
     const [loading, setLoading] = useState(false);
@@ -129,8 +131,14 @@ const Register = () => {
 
         setLoading(true);
         try {
-            await api.post('/auth/send-otp', { identifier, type: type === 'phone' ? 'mobile' : 'email' });
+            const { data } = await api.post('/auth/send-otp', { identifier, type: type === 'phone' ? 'mobile' : 'email' });
             setOtpState(prev => ({ ...prev, [type + 'Sent']: true }));
+
+            // For Dev/Demo: Alert the OTP if returned (Mobile/Mock)
+            if (data.devOtp) {
+                alert(`DEMO OTP for ${type}: ${data.devOtp}`);
+            }
+
             setError('');
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to send OTP');
@@ -186,7 +194,8 @@ const Register = () => {
         setError('');
 
         if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
-        if (!files.panCard || !files.aadhaarCard || !files.addressProof) { setError('Please upload all mandatory documents'); return; }
+        if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return; }
+        if (!files.panCard || !files.aadhaarCard || !files.addressProof || !files.ownerPhoto) { setError('Please upload all mandatory documents'); return; }
 
         setLoading(true);
         try {
@@ -206,6 +215,7 @@ const Register = () => {
             if (files.aadhaarCard) submitData.append('aadhaarCard', files.aadhaarCard);
             if (files.gstCertificate) submitData.append('gstCertificate', files.gstCertificate);
             if (files.addressProof) submitData.append('addressProof', files.addressProof);
+            if (files.ownerPhoto) submitData.append('ownerPhoto', files.ownerPhoto);
 
             const { data } = await api.post('/auth/register', submitData, { headers: { 'Content-Type': 'multipart/form-data' } });
 
@@ -266,10 +276,11 @@ const Register = () => {
 
                 <div className="relative z-10">
                     <div className="flex items-center gap-3 mb-12">
-                        <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
-                            <Plane size={24} className="text-white" />
-                        </div>
-                        <span className="text-2xl font-bold tracking-tight font-display">TripVenza</span>
+                        <img
+                            src={logo}
+                            alt="TripVenza Logo"
+                            className="h-16 w-auto object-contain bg-white/90 backdrop-blur-md rounded-xl p-2 shadow-lg"
+                        />
                     </div>
 
                     <h2 className="text-4xl font-bold mb-4 font-display leading-tight">Partner With Us</h2>
@@ -308,10 +319,7 @@ const Register = () => {
                 {/* Mobile Header */}
                 <div className="lg:hidden p-4 border-b border-gray-100 flex items-center justify-between bg-white/80 backdrop-blur-md sticky top-0 z-20">
                     <span className="font-bold flex items-center gap-2 font-display text-lg">
-                        <div className="p-1.5 bg-blue-600 rounded-lg">
-                            <Plane size={16} className="text-white" />
-                        </div>
-                        TripVenza
+                        <img src={logo} alt="TripVenza" className="h-8 w-auto" />
                     </span>
                     <div className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">Step {step}/4</div>
                 </div>
@@ -489,11 +497,14 @@ const Register = () => {
 
                                         <div className="space-y-5">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <FileUploadField label="Owner Photo" name="ownerPhoto" required helpText="Clear selfie/passport photo" />
                                                 <FileUploadField label="PAN Card" name="panCard" required />
-                                                <FileUploadField label="Aadhaar Card (Front/Back)" name="aadhaarCard" required helpText="Merged PDF or Front Image" />
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                                <FileUploadField label="Aadhaar Card (Front/Back)" name="aadhaarCard" required helpText="Merged PDF or Front Image" />
                                                 <FileUploadField label="Address Proof" name="addressProof" required helpText="Electricity Bill, Rent Deed etc." />
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                                 <FileUploadField label="GST Cert (Optional)" name="gstCertificate" />
                                             </div>
                                         </div>

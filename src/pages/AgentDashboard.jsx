@@ -70,7 +70,7 @@ const AgentDashboard = () => {
                     <Routes>
                         <Route path="/" element={<Overview />} />
                         <Route path="/new-visa" element={<NewVisa />} />
-                        <Route path="/apply" element={<ApplyVisa />} />
+                        <Route path="/apply-visa" element={<ApplyVisa />} />
                         <Route path="/wallet" element={<Wallet />} />
                         <Route path="/sub-agents" element={<SubAgents />} />
                         <Route path="/settings" element={<Settings />} />

@@ -6,7 +6,10 @@ import { Loader } from 'lucide-react';
 import ApplicationStatusCard from '../components/ApplicationStatusCard';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import { useNavigate } from 'react-router-dom';
+
 const Applications = () => {
+    const navigate = useNavigate();
     const dispatch = useDispatch();
     const { list, loading } = useSelector(state => state.applications);
 
@@ -18,7 +21,7 @@ const Applications = () => {
         dispatch(fetchApplications());
     }, [dispatch]);
 
-    const tabs = ['All', 'Processing', 'Approved', 'Rejected'];
+    const tabs = ['All', 'Draft', 'Pending', 'Processing', 'Approved', 'Rejected'];
 
     const filteredList = useMemo(() => {
         return list.filter(app => {

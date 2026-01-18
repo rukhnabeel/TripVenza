@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { updateApplicationStatus } from '../../store/slices/applicationsSlice';
 import api from '../../utils/api';
-import { ArrowLeft, User, MapPin, Calendar, CreditCard, ShieldCheck, Download, AlertCircle, FileText, CheckCircle, XCircle, Search } from 'lucide-react';
+import { ArrowLeft, User, MapPin, Calendar, CreditCard, ShieldCheck, Download, AlertCircle, FileText, CheckCircle, XCircle, Search, Eye } from 'lucide-react';
+import DocumentPreviewModal from '../../components/DocumentPreviewModal';
 
 const AdminApplicationDetails = () => {
     const { id } = useParams();
@@ -15,6 +16,7 @@ const AdminApplicationDetails = () => {
     const [rejectReason, setRejectReason] = useState('');
     const [visaFile, setVisaFile] = useState(null);
     const [processing, setProcessing] = useState(false);
+    const [previewModal, setPreviewModal] = useState({ isOpen: false, url: null, title: '' });
 
     useEffect(() => {
         const fetchDetails = async () => {
@@ -170,22 +172,46 @@ const AdminApplicationDetails = () => {
                                         </div>
                                     </div>
 
-                                    {/* Documents */}
-                                    <div className="flex gap-3 mt-4">
-                                        {Object.entries(applicant.documents || {}).map(([key, url]) => {
-                                            if (key === 'other') return null; // Skip array for now or map it differently
-                                            return (
-                                                <a
-                                                    key={key}
-                                                    href={url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all"
-                                                >
-                                                    <FileText size={14} className="mr-1.5" />
-                                                    {key.replace(/([A-Z])/g, ' $1').trim()}
-                                                </a>
-                                            );
+                                    <div className="flex gap-3 mt-4 flex-wrap">
+                                        {Object.entries(applicant.documents || {}).map(([key, value]) => {
+                                            if (!value) return null;
+
+                                            // Handle Array of 'Other' documents
+                                            if (key === 'other' && Array.isArray(value)) {
+                                                return value.map((url, i) => (
+                                                    <button
+                                                        key={`other-${i}`}
+                                                        onClick={() => setPreviewModal({
+                                                            isOpen: true,
+                                                            url: url,
+                                                            title: `Other Doc ${i + 1} - ${applicant.firstName}`
+                                                        })}
+                                                        className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                                                    >
+                                                        <FileText size={14} className="mr-1.5" />
+                                                        Other Doc {i + 1}
+                                                    </button>
+                                                ));
+                                            }
+
+                                            // Handle standard string URLs (Passport, Photo)
+                                            if (typeof value === 'string') {
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        onClick={() => setPreviewModal({
+                                                            isOpen: true,
+                                                            url: value,
+                                                            title: `${key.replace(/([A-Z])/g, ' $1').trim()} - ${applicant.firstName}`
+                                                        })}
+                                                        className="inline-flex items-center px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs font-medium text-gray-700 hover:bg-gray-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                                                    >
+                                                        <Eye size={14} className="mr-1.5" />
+                                                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                                                    </button>
+                                                );
+                                            }
+                                            return null;
                                         })}
                                     </div>
                                 </div>
@@ -250,14 +276,16 @@ const AdminApplicationDetails = () => {
                             {application.approvedVisaDocument?.url && (
                                 <div className="bg-green-50 p-3 rounded-lg border border-green-100 mt-2">
                                     <span className="text-green-800 text-xs font-bold block mb-1">Approved Visa:</span>
-                                    <a
-                                        href={application.approvedVisaDocument.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="text-green-700 text-sm underline flex items-center gap-1"
+                                    <button
+                                        onClick={() => setPreviewModal({
+                                            isOpen: true,
+                                            url: application.approvedVisaDocument.url,
+                                            title: `Approved Visa - ${application.applicationId}`
+                                        })}
+                                        className="text-green-700 text-sm underline flex items-center gap-1 hover:text-green-800"
                                     >
-                                        <Download size={14} /> Download File
-                                    </a>
+                                        <Eye size={14} /> View / Download
+                                    </button>
                                 </div>
                             )}
                         </div>
@@ -340,6 +368,14 @@ const AdminApplicationDetails = () => {
                     </div>
                 </div>
             )}
+
+            {/* Document Preview Modal */}
+            <DocumentPreviewModal
+                isOpen={previewModal.isOpen}
+                onClose={() => setPreviewModal({ ...previewModal, isOpen: false })}
+                fileUrl={previewModal.url}
+                title={previewModal.title}
+            />
         </div>
     );
 };

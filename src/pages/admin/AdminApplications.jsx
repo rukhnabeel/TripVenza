@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchApplications } from '../../store/slices/applicationsSlice';
 import { Search, Filter, Eye, Download, ChevronLeft, ChevronRight, Inbox, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import api from '../../utils/api';
 
 const AdminApplications = () => {
     const dispatch = useDispatch();
@@ -23,6 +24,20 @@ const AdminApplications = () => {
         }, 500);
         return () => clearTimeout(timer);
     }, [filters, dispatch]);
+
+    const [countries, setCountries] = useState([]);
+
+    useEffect(() => {
+        const fetchCountries = async () => {
+            try {
+                const { data } = await api.get('/visa/countries');
+                setCountries(data);
+            } catch (error) {
+                console.error('Failed to load countries for filter');
+            }
+        };
+        fetchCountries();
+    }, []);
 
     const handleFilterChange = (key, value) => {
         setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
@@ -68,8 +83,8 @@ const AdminApplications = () => {
                                 key={tab}
                                 onClick={() => handleFilterChange('status', tab)}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${filters.status === tab
-                                        ? 'bg-white text-gray-900 shadow-sm'
-                                        : 'text-gray-300 hover:bg-white/10'
+                                    ? 'bg-white text-gray-900 shadow-sm'
+                                    : 'text-gray-300 hover:bg-white/10'
                                     }`}
                             >
                                 {tab}
@@ -102,11 +117,9 @@ const AdminApplications = () => {
                         onChange={(e) => handleFilterChange('country', e.target.value)}
                     >
                         <option value="All">All Countries</option>
-                        <option value="Dubai">Dubai</option>
-                        <option value="Malaysia">Malaysia</option>
-                        <option value="Vietnam">Vietnam</option>
-                        <option value="Thailand">Thailand</option>
-                        {/* Dynamic list ideally */}
+                        {countries.map(country => (
+                            <option key={country._id} value={country._id}>{country.name}</option>
+                        ))}
                     </select>
 
                     <button className="flex items-center px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 font-medium transition-colors shadow-sm">
@@ -162,8 +175,8 @@ const AdminApplications = () => {
                                             <td className="py-5 px-6">
                                                 <div className="flex items-center">
                                                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold mr-4 transition-transform group-hover:scale-105 ${app.isGroupApplication
-                                                            ? 'bg-purple-100 text-purple-600'
-                                                            : 'bg-blue-100 text-blue-600'
+                                                        ? 'bg-purple-100 text-purple-600'
+                                                        : 'bg-blue-100 text-blue-600'
                                                         }`}>
                                                         {displayName?.charAt(0)}
                                                     </div>
@@ -195,9 +208,9 @@ const AdminApplications = () => {
                                             </td>
                                             <td className="py-5 px-6">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${app.status === 'Approved' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                                        app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' :
-                                                            app.status === 'Processing' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                                                'bg-amber-50 text-amber-700 border-amber-100'
+                                                    app.status === 'Rejected' ? 'bg-rose-50 text-rose-700 border-rose-100' :
+                                                        app.status === 'Processing' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                                            'bg-amber-50 text-amber-700 border-amber-100'
                                                     }`}>
                                                     {app.status === 'Approved' && <CheckCircle size={12} className="mr-1.5" />}
                                                     {app.status === 'Rejected' && <XCircle size={12} className="mr-1.5" />}

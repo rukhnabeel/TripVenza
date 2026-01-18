@@ -5,6 +5,7 @@ import { loginSuccess } from '../store/slices/authSlice';
 import api from '../utils/api';
 import { slugify } from '../utils/helpers';
 import { Mail, Lock, ArrowRight, AlertCircle, Plane } from 'lucide-react';
+import logo from '../assets/tripvenza_logo.png';
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -34,8 +35,7 @@ const Login = () => {
                 return;
             } else {
                 dispatch(loginSuccess(data));
-                const slug = slugify(data.user.agencyName || data.user.name);
-                navigate(`/${slug}/dashboard`);
+                navigate('/home');
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Invalid email or password');
@@ -57,11 +57,14 @@ const Login = () => {
 
                 <div className="relative z-10 w-full p-16 flex flex-col justify-between text-white h-full">
                     <div>
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-2.5 bg-white/10 rounded-xl backdrop-blur-md border border-white/10 shadow-lg">
-                                <Plane size={24} className="text-white" />
+                        <div>
+                            <div className="flex items-center gap-3 mb-8">
+                                <img
+                                    src={logo}
+                                    alt="TripVenza Logo"
+                                    className="h-16 w-auto object-contain bg-white/10 backdrop-blur-sm rounded-xl p-2"
+                                />
                             </div>
-                            <span className="text-2xl font-bold tracking-tight font-display">TripVenza</span>
                         </div>
                     </div>
 
@@ -96,10 +99,11 @@ const Login = () => {
             <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-24 relative bg-gray-50/30">
                 {/* Mobile Logo */}
                 <div className="absolute top-8 left-8 lg:hidden flex items-center gap-2">
-                    <div className="p-2 bg-blue-600 rounded-lg shadow-blue-200 shadow-lg">
-                        <Plane size={20} className="text-white" />
-                    </div>
-                    <span className="text-xl font-bold text-gray-900 font-display">TripVenza</span>
+                    <img
+                        src={logo}
+                        alt="TripVenza Logo"
+                        className="h-10 w-auto object-contain"
+                    />
                 </div>
 
                 <div className="w-full max-w-[420px] space-y-8 animate-fade-in">

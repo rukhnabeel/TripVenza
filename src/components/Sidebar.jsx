@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from '../store/slices/authSlice';
+import logo from '../assets/tripvenza_logo.png';
 
 const Sidebar = () => {
     const dispatch = useDispatch();
@@ -37,16 +38,12 @@ const Sidebar = () => {
     return (
         <div className="w-64 bg-white/90 backdrop-blur-md border-r border-gray-100 min-h-screen flex flex-col fixed left-0 top-0 z-30 shadow-lg shadow-gray-200/50">
             <div className="p-6">
-                <div className="flex items-center gap-3 mb-8">
-                    <div className="p-2 bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20">
-                        <Plane size={20} className="text-white" />
-                    </div>
-                    <div>
-                        <h2 className="text-xl font-bold tracking-tight text-gray-900">
-                            TripVenza
-                        </h2>
-                        <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Business</span>
-                    </div>
+                <div className="flex items-center justify-center mb-8">
+                    <img
+                        src={logo}
+                        alt="TripVenza Logo"
+                        className="h-14 w-auto object-contain transition-transform hover:scale-105"
+                    />
                 </div>
 
                 <div className="p-4 bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 shadow-sm mb-6">

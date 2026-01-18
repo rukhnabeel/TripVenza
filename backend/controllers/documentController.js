@@ -1,47 +1,7 @@
-const User = require('../models/User');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const uploadMiddleware = require('../middleware/upload');
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        const uploadDir = path.join(__dirname, '../uploads/documents');
-
-        // Create directory if it doesn't exist
-        if (!fs.existsSync(uploadDir)) {
-            fs.mkdirSync(uploadDir, { recursive: true });
-        }
-
-        cb(null, uploadDir);
-    },
-    filename: function (req, file, cb) {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-const fileFilter = (req, file, cb) => {
-    // Accept images and PDFs only
-    const allowedTypes = /jpeg|jpg|png|pdf/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-
-    if (mimetype && extname) {
-        return cb(null, true);
-    } else {
-        cb(new Error('Only images (JPEG, JPG, PNG) and PDF files are allowed!'));
-    }
-};
-
-const upload = multer({
-    storage: storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: fileFilter
-});
-
-// Upload fields configuration
-const uploadFields = upload.fields([
+// Helper to handle upload fields using the centralized middleware
+const uploadFields = uploadMiddleware.fields([
     { name: 'panCard', maxCount: 1 },
     { name: 'gstCertificate', maxCount: 1 },
     { name: 'businessRegistrationCertificate', maxCount: 1 },
@@ -56,8 +16,6 @@ const uploadFields = upload.fields([
     { name: 'directorPan', maxCount: 10 },
     { name: 'directorPhoto', maxCount: 10 }
 ]);
-
-// @desc    Upload agency documents
 // @route   POST /api/documents/upload
 // @access  Private
 const uploadDocuments = async (req, res) => {
@@ -128,8 +86,11 @@ const uploadDocuments = async (req, res) => {
         // Helper function to update document
         const updateDocument = (docType, fileArray) => {
             if (fileArray && fileArray.length > 0) {
+                const file = fileArray[0];
+                // Cloudinary returns full URL in 'path', local storage returns 'filename'
+                const url = file.path || `/uploads/documents/${file.filename}`;
                 return {
-                    url: `/uploads/documents/${fileArray[0].filename}`,
+                    url: url,
                     verified: false,
                     uploadedAt: currentDate
                 };

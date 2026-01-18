@@ -139,7 +139,7 @@ const userSchema = new mongoose.Schema({
         // Address Proof
         addressProof: {
             url: String,
-            type: { type: String, enum: ['Electricity Bill', 'Rent Agreement', 'Property Tax Receipt', 'Bank Statement'] },
+            type: { type: String, enum: ['Electricity Bill', 'Rent Agreement', 'Property Tax Receipt', 'Bank Statement', 'Shop Establishment Certificate / Registration Certificate'] },
             verified: { type: Boolean, default: false },
             uploadedAt: Date,
             verifiedAt: Date

@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: 'http://127.0.0.1:5000/api',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -17,6 +17,20 @@ api.interceptors.request.use(
         return config;
     },
     (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Add a response interceptor to handle 503 Maintenance Mode
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 503) {
+            // Check if we are already on the maintenance page to prevent loop
+            if (!window.location.pathname.includes('/maintenance')) {
+                window.location.href = '/maintenance';
+            }
+        }
         return Promise.reject(error);
     }
 );

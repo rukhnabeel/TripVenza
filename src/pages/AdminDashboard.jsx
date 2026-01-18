@@ -9,7 +9,7 @@ import AdminOverview from './AdminOverview';
 import Services from './Services';
 import AdminApplications from './admin/AdminApplications';
 import AdminApplicationDetails from './admin/AdminApplicationDetails';
-import AdminVisaManagement from './admin/AdminVisaManagement';
+
 import Settings from './Settings';
 import VerifyDocuments from './VerifyDocuments';
 import ManageAgents from './ManageAgents';
@@ -41,7 +41,7 @@ const AdminDashboard = () => {
                     <Route path="/applications" element={<AdminApplications />} />
                     <Route path="/applications/:id" element={<AdminApplicationDetails />} />
                     <Route path="/agents" element={<ManageAgents />} />
-                    <Route path="/visas" element={<AdminVisaManagement />} />
+                    <Route path="/visas" element={<Services />} />
                     <Route path="/wallet-requests" element={<AdminWalletRequests />} />
                     <Route path="*" element={<div className="text-gray-500">Page not found.</div>} />
                 </Routes>

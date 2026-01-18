@@ -1,6 +1,6 @@
 const nodemailer = require('nodemailer');
 
-const sendEmail = async (to, subject, html) => {
+const sendEmail = async (to, subject, html, attachments = []) => {
     // Check if SMTP credentials are provided
     if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
         try {
@@ -19,6 +19,7 @@ const sendEmail = async (to, subject, html) => {
                 to: to,
                 subject: subject,
                 html: html,
+                attachments: attachments
             });
 
             console.log(`\n📧 [EMAIL SENT] Message ID: ${info.messageId}`);

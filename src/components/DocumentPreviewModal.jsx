@@ -7,7 +7,7 @@ const DocumentPreviewModal = ({ isOpen, onClose, fileUrl, fileType = 'image', ti
     // Normalize URL: Ensure it points to backend if it's a relative path and not a blob
     const fullUrl = fileUrl.startsWith('blob:') || fileUrl.startsWith('http')
         ? fileUrl
-        : `http://localhost:5000/${fileUrl.replace(/\\/g, '/')}`;
+        : `${(import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '')}/${fileUrl.replace(/\\/g, '/')}`;
 
     const isPdf = fileType === 'pdf' || fullUrl.toLowerCase().endsWith('.pdf');
 

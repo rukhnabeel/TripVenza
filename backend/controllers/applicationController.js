@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Application = require('../models/Application');
 const User = require('../models/User');
 const Transaction = require('../models/Transaction');
@@ -38,40 +39,45 @@ exports.createApplication = async (req, res) => {
         // 2. Handle Payment Logic based on Method
         let paymentStatus = 'Pending';
         let transactionId = null;
+        let finalStatus = 'Submitted';
 
-        if (paymentMethod === 'Wallet') {
-            // Check Wallet Balance
-            if (user.walletBalance < totalAmount) {
-                throw new Error(`Insufficient Wallet Balance. Required: ₹${totalAmount}, Available: ₹${user.walletBalance}`);
-            }
-
-            // Deduct Balance
-            user.walletBalance -= totalAmount;
-            user.performanceMetrics.totalFilesProcessed += applicants.length;
-            user.performanceMetrics.totalSpentLastMonth += totalAmount;
-            await user.save({ session });
-
-            // Create Transaction Record
-            const groupRef = isGroupApplication ? `GRP-${Date.now()}` : null;
-            const txn = await Transaction.create([{
-                user: userId,
-                amount: totalAmount,
-                type: 'Debit',
-                category: 'Visa Fee',
-                description: `Visa Application for ${country.name} (${applicants.length} applicants)${isGroupApplication ? ` - Group: ${groupName}` : ''}`,
-                balanceAfter: user.walletBalance,
-                referenceId: groupRef,
-                paymentMethod: 'Wallet'
-            }], { session });
-
-            paymentStatus = 'Paid'; // Wallet means immediate success
-            transactionId = txn[0]._id;
+        // Check for Draft Status from request
+        if (req.body.status === 'Draft') {
+            finalStatus = 'Draft';
+            // Drafts don't require payment or wallet deduction yet
         } else {
-            // Logic for UPI / Card (Assuming gateway success for now)
-            // Ideally, we would have a 'verifyPayment' endpoint, but for this task,
-            // we'll assume the frontend only calls this after successful gateway interaction (mocked)
-            // or checks a reference ID.
-            paymentStatus = 'Paid'; // Mocking success for UPI/Card
+            // Normal Submission Flow
+            if (paymentMethod === 'Wallet') {
+                // Check Wallet Balance
+                if (user.walletBalance < totalAmount) {
+                    throw new Error(`Insufficient Wallet Balance. Required: ₹${totalAmount}, Available: ₹${user.walletBalance}`);
+                }
+
+                // Deduct Balance
+                user.walletBalance -= totalAmount;
+                user.performanceMetrics.totalFilesProcessed += applicants.length;
+                user.performanceMetrics.totalSpentLastMonth += totalAmount;
+                await user.save({ session });
+
+                // Create Transaction Record
+                const groupRef = isGroupApplication ? `GRP-${Date.now()}` : null;
+                const txn = await Transaction.create([{
+                    user: userId,
+                    amount: totalAmount,
+                    type: 'Debit',
+                    category: 'Visa Fee',
+                    description: `Visa Application for ${country.name} (${applicants.length} applicants)${isGroupApplication ? ` - Group: ${groupName}` : ''}`,
+                    balanceAfter: user.walletBalance,
+                    referenceId: groupRef,
+                    paymentMethod: 'Wallet'
+                }], { session });
+
+                paymentStatus = 'Paid'; // Wallet means immediate success
+                transactionId = txn[0]._id;
+            } else {
+                // Logic for UPI / Card (Assuming gateway success for now)
+                paymentStatus = 'Paid';
+            }
         }
 
         // 3. Create Application
@@ -105,32 +111,134 @@ exports.createApplication = async (req, res) => {
 
             totalAmount: totalAmount,
             paymentStatus: paymentStatus, // Paid or Pending
-            status: 'Submitted',
+            status: finalStatus,
             paymentMethod: paymentMethod
         }], { session });
 
-        // 4. Send Email Notification to Admin
-        const adminEmail = process.env.ADMIN_EMAIL || 'admin@tripvenza.com';
-        const adminDashboardLink = `http://localhost:5173/admin/dashboard/applications/${application[0].applicationId}`; // Or env var for base URL
+        // 4. Send Email Notification to Admin (Only for submitted applications)
+        if (finalStatus !== 'Draft') {
+            const adminEmail = process.env.ADMIN_EMAIL || 'admin@tripvenza.com';
+            const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+            const adminDashboardLink = `${clientUrl}/admin/dashboard/applications/${application[0].applicationId}`;
+            const axios = require('axios');
+            const fs = require('fs').promises;
 
-        const emailSubject = `New Visa Application: ${application[0].applicationId} - ${country.name}`;
-        const emailBody = `
-            <h3>New Visa Application Received</h3>
-            <p><strong>Application ID:</strong> ${application[0].applicationId}</p>
-            <p><strong>Agent:</strong> ${user.name} (${user.agencyName || 'No Agency'})</p>
-            <p><strong>Country:</strong> ${country.name}</p>
-            <p><strong>Visa Type:</strong> ${visaType}</p>
-            <p><strong>Applicants:</strong> ${applicants.length}</p>
-            <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
-            <br/>
-            <p>Click below to view full details and documents:</p>
-            <a href="${adminDashboardLink}" style="padding: 10px 20px; background-color: #2563EB; color: white; text-decoration: none; border-radius: 5px;">View Application</a>
-            <br/><br/>
-            <p>Documents (Passport, Photo, etc.) are available in the dashboard.</p>
-        `;
+            const emailSubject = `New Visa Application: ${application[0].applicationId} - ${country.name}`;
 
-        // We don't await this to prevent blocking response if email fails
-        sendEmail(adminEmail, emailSubject, emailBody).catch(err => console.error('Failed to send admin notification:', err));
+            // Collect Attachments
+            const attachments = [];
+            const applicantsHtmlRows = [];
+
+            // Helper to add attachment
+            const addAttachment = async (urlOrPath, filename) => {
+                if (!urlOrPath) return null;
+                try {
+                    if (urlOrPath.startsWith('http')) {
+                        // Fetch remote file
+                        const response = await axios.get(urlOrPath, { responseType: 'arraybuffer' });
+                        attachments.push({
+                            filename: filename,
+                            content: response.data
+                        });
+                        return urlOrPath; // Return link as fallback
+                    } else {
+                        // Local file
+                        // attachments.push({ path: urlOrPath, filename: filename }); // Nodemailer handles paths
+                        // Check if file exists first to avoid crash
+                        return urlOrPath;
+                    }
+                } catch (error) {
+                    console.error(`Failed to attach ${filename}:`, error.message);
+                    return urlOrPath; // Return link if attachment fails
+                }
+            };
+
+            // Process Applicants
+            for (let i = 0; i < applicants.length; i++) {
+                const app = applicants[i];
+                const docsLinks = [];
+                const appName = `${app.firstName}-${app.lastName}`.replace(/\s+/g, '');
+
+                if (app.documents) {
+                    // Passport Front
+                    if (app.documents.passportFront) {
+                        await addAttachment(app.documents.passportFront, `${appName}-PassportFront.jpg`);
+                        docsLinks.push(`<a href="${app.documents.passportFront}" target="_blank">Passport Front</a>`);
+                    }
+                    // Passport Back
+                    if (app.documents.passportBack) {
+                        await addAttachment(app.documents.passportBack, `${appName}-PassportBack.jpg`);
+                        docsLinks.push(`<a href="${app.documents.passportBack}" target="_blank">Passport Back</a>`);
+                    }
+                    // Photo
+                    if (app.documents.photo) {
+                        await addAttachment(app.documents.photo, `${appName}-Photo.jpg`);
+                        docsLinks.push(`<a href="${app.documents.photo}" target="_blank">Photo</a>`);
+                    }
+                    // Other
+                    if (app.documents.other && app.documents.other.length > 0) {
+                        for (let j = 0; j < app.documents.other.length; j++) {
+                            await addAttachment(app.documents.other[j], `${appName}-Other-${j + 1}.pdf`);
+                            docsLinks.push(`<a href="${app.documents.other[j]}" target="_blank">Other ${j + 1}</a>`);
+                        }
+                    }
+                }
+
+                applicantsHtmlRows.push(`
+                    <tr>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${app.firstName} ${app.lastName}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${app.passportNumber}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">${new Date(app.dateOfBirth).toLocaleDateString()}</td>
+                        <td style="padding: 10px; border: 1px solid #ddd;">
+                            ${docsLinks.length > 0 ? docsLinks.join(' | ') : 'No documents'}
+                        </td>
+                    </tr>
+                `);
+            }
+
+            const applicantsHtml = `
+                <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                    <thead>
+                        <tr style="background-color: #f3f4f6; text-align: left;">
+                            <th style="padding: 10px; border: 1px solid #ddd;">Name</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Passport</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">DOB</th>
+                            <th style="padding: 10px; border: 1px solid #ddd;">Documents</th>
+                        </tr>
+                    </thead>
+                    <tbody>${applicantsHtmlRows.join('')}</tbody>
+                </table>
+            `;
+
+            const emailBody = `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #2563EB;">New Visa Application Received</h2>
+                    
+                    <div style="background-color: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                        <p><strong>Application ID:</strong> ${application[0].applicationId}</p>
+                        <p><strong>Agent:</strong> ${user.name} (${user.agencyName || 'No Agency'})</p>
+                        <p><strong>Country:</strong> ${country.name}</p>
+                        <p><strong>Visa Type:</strong> ${visaType}</p>
+                        <p><strong>Total Amount:</strong> ₹${totalAmount}</p>
+                    </div>
+
+                    <h3>Applicant Details</h3>
+                    ${applicantsHtml}
+                    <p style="font-size: 12px; color: #666;">* Documents are attached to this email. If missing, please use the links above.</p>
+                    
+                    <br/>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <a href="${adminDashboardLink}" style="padding: 12px 24px; background-color: #2563EB; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                            View in Dashboard
+                        </a>
+                    </div>
+                    
+                    <p style="margin-top: 30px; color: #6b7280; font-size: 12px;">This is an automated message from TripVenza.</p>
+                </div>
+            `;
+
+            sendEmail(adminEmail, emailSubject, emailBody, attachments).catch(err => console.error('Failed to send admin notification:', err));
+        }
 
         await session.commitTransaction();
         session.endSession();
@@ -234,8 +342,16 @@ exports.updateApplicationStatus = async (req, res) => {
             application.timeline.rejectedAt = Date.now();
         } else if (status === 'Approved') {
             if (file) {
+                // Support both Cloudinary (path/secure_url) and Local (filename)
+                let documentUrl;
+                if (file.path && file.path.startsWith('http')) {
+                    documentUrl = file.path; // Cloudinary URL
+                } else {
+                    documentUrl = `/uploads/${file.filename}`; // Local URL
+                }
+
                 application.approvedVisaDocument = {
-                    url: `/uploads/${file.filename}`,
+                    url: documentUrl,
                     uploadedAt: Date.now(),
                     originalName: file.originalname
                 };
@@ -366,9 +482,15 @@ exports.trackApplicationStatus = async (req, res) => {
 exports.getApplicationDetails = async (req, res) => {
     try {
         const { id } = req.params;
-        const application = await Application.findOne({
-            $or: [{ _id: id }, { applicationId: id }]
-        })
+
+        let query;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+            query = { $or: [{ _id: id }, { applicationId: id }] };
+        } else {
+            query = { applicationId: id };
+        }
+
+        const application = await Application.findOne(query)
             .populate('country', 'name flag')
             .populate('agent', 'name agencyName email phone kycStatus');
 

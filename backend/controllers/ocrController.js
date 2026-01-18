@@ -2,6 +2,7 @@ const ocrService = require('../utils/ocrService');
 const advancedOCRService = require('../utils/advancedOCRService');
 const fs = require('fs').promises;
 const path = require('path');
+const axios = require('axios');
 
 /**
  * @desc    Process passport image and extract data using OCR
@@ -11,6 +12,8 @@ const path = require('path');
 exports.processPassport = async (req, res) => {
     try {
         console.log('🛂 Process Passport Request Received');
+        if (req.file) console.log('📂 Uploaded File:', req.file);
+
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -22,8 +25,17 @@ exports.processPassport = async (req, res) => {
         const useAdvanced = req.query.advanced !== 'false'; // Default to true
         const documentType = req.body.type || 'front'; // 'front' or 'back'
 
-        // Read the uploaded file
-        const imageBuffer = await fs.readFile(req.file.path);
+        // Read the uploaded file (Local or Cloudinary URL)
+        // Read the uploaded file (Local or Cloudinary URL)
+        let imageBuffer;
+        if (req.file.path.startsWith('http') || req.file.path.startsWith('https')) {
+            // Cloudinary or other remote URL
+            const response = await axios.get(req.file.path, { responseType: 'arraybuffer' });
+            imageBuffer = Buffer.from(response.data);
+        } else {
+            // Local file
+            imageBuffer = await fs.readFile(req.file.path);
+        }
 
         let result;
 
@@ -273,7 +285,18 @@ exports.validateFace = async (req, res) => {
             });
         }
 
-        const imageBuffer = await fs.readFile(req.file.path);
+        // Read image (Local or Cloudinary)
+        let filePath = req.file.path;
+        if (req.file.secure_url) filePath = req.file.secure_url;
+        else if (req.file.url) filePath = req.file.url;
+
+        let imageBuffer;
+        if (filePath && (filePath.startsWith('http') || filePath.startsWith('https'))) {
+            const response = await axios.get(filePath, { responseType: 'arraybuffer' });
+            imageBuffer = Buffer.from(response.data);
+        } else {
+            imageBuffer = await fs.readFile(req.file.path);
+        }
         const result = await advancedOCRService.detectFace(imageBuffer);
 
         if (!result.hasFace) {
@@ -288,65 +311,14 @@ exports.validateFace = async (req, res) => {
         }
 
         // Face detected - Return success and file path (same as uploadFile)
-        const filePath = `uploads/${req.file.filename}`;
+        const relativeFilePath = `uploads/${req.file.filename}`;
 
         res.json({
             success: true,
             hasFace: true,
             faceCount: result.faceCount,
             confidence: result.confidence,
-            filePath: filePath,
-            filename: req.file.filename,
-            message: 'Face detected successfully'
-        });
-
-    } catch (error) {
-        console.error('Face validation error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to validate face',
-            error: error.message
-        });
-    }
-};
-
-/**
- * @desc    Validate if an image contains a human face
- * @route   POST /api/ocr/validate-face
- * @access  Private
- */
-exports.validateFace = async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please upload an image'
-            });
-        }
-
-        const imageBuffer = await fs.readFile(req.file.path);
-        const result = await advancedOCRService.detectFace(imageBuffer);
-
-        if (!result.hasFace) {
-            // Remove the invalid file to save space
-            await fs.unlink(req.file.path).catch(console.error);
-
-            return res.status(400).json({
-                success: false,
-                message: 'No human face detected. Please upload a clear photo of the applicant.',
-                confidence: result.confidence
-            });
-        }
-
-        // Face detected - Return success and file path (same as uploadFile)
-        const filePath = `uploads/${req.file.filename}`;
-
-        res.json({
-            success: true,
-            hasFace: true,
-            faceCount: result.faceCount,
-            confidence: result.confidence,
-            filePath: filePath,
+            filePath: relativeFilePath,
             filename: req.file.filename,
             message: 'Face detected successfully'
         });

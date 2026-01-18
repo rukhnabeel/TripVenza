@@ -3,6 +3,107 @@ import { CreditCard, History, Plus, ArrowUpRight, ArrowDownLeft, Wallet as Walle
 import { useSelector, useDispatch } from 'react-redux';
 import { motion } from 'framer-motion';
 import api from '../utils/api';
+import { updateUser } from '../store/slices/authSlice';
+
+const ManualDepositForm = ({ onSuccess }) => {
+    const [amount, setAmount] = useState('');
+    const [utr, setUtr] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setLoading(true);
+        try {
+            await api.post('/wallet/add', { amount: Number(amount), utrNumber: utr });
+            alert('Deposit Request Submitted! Admin will verify shortly.');
+            setAmount('');
+            setUtr('');
+            if (onSuccess) onSuccess();
+        } catch (error) {
+            alert(error.response?.data?.message || 'Failed to submit request');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Bank Details Section */}
+            <div className="bg-blue-50 border border-blue-100 rounded-2xl p-6 flex flex-col md:flex-row gap-6 items-center">
+                <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex-shrink-0">
+                    {/* Placeholder for QR Code - using absolute logo but ideally a real QR */}
+                    <div className="w-32 h-32 bg-gray-900 rounded-lg flex items-center justify-center text-white text-xs text-center p-2">
+                        <div className="space-y-1">
+                            <span className="font-bold block text-lg">UPI QR</span>
+                            <span className="text-gray-400">Scan to Pay</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex-1 space-y-3 w-full">
+                    <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                        <CreditCard size={18} className="text-blue-600" />
+                        Bank Account Details
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="p-3 bg-white rounded-lg border border-gray-100">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Bank Name</p>
+                            <p className="font-bold text-gray-900">ICICI Bank</p>
+                        </div>
+                        <div className="p-3 bg-white rounded-lg border border-gray-100">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Account Name</p>
+                            <p className="font-bold text-gray-900">TripVenza Holidays</p>
+                        </div>
+                        <div className="p-3 bg-white rounded-lg border border-gray-100">
+                            <p className="text-xs text-gray-500 font-bold uppercase">Account Number</p>
+                            <p className="font-bold text-gray-900 font-mono">123456789012</p>
+                        </div>
+                        <div className="p-3 bg-white rounded-lg border border-gray-100">
+                            <p className="text-xs text-gray-500 font-bold uppercase">IFSC Code</p>
+                            <p className="font-bold text-gray-900 font-mono">ICIC0001234</p>
+                        </div>
+                    </div>
+                    <div className="text-xs text-blue-600 bg-blue-100/50 px-3 py-2 rounded-lg border border-blue-100">
+                        <strong>Note:</strong> Transfer funds to the above account or scan QR, then enter the UTR/Reference number below.
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Amount</label>
+                <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">₹</span>
+                    <input
+                        type="number"
+                        required
+                        min="100"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all"
+                        placeholder="0.00"
+                    />
+                </div>
+            </div>
+            <div>
+                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">UTR / Reference No.</label>
+                <input
+                    type="text"
+                    required
+                    value={utr}
+                    onChange={(e) => setUtr(e.target.value)}
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl font-bold text-gray-900 focus:ring-2 focus:ring-purple-100 focus:border-purple-500 outline-none transition-all"
+                    placeholder="e.g. 1234567890"
+                />
+            </div>
+            <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold shadow-lg shadow-purple-200 transition-all flex items-center justify-center gap-2"
+            >
+                {loading ? 'Submitting...' : 'Submit Request'}
+                {!loading && <ArrowDownLeft size={18} />}
+            </button>
+        </form>
+    );
+};
 
 const Wallet = () => {
     const { user } = useSelector(state => state.auth);
@@ -75,6 +176,10 @@ const Wallet = () => {
                         if (verifyRes.data.success) {
                             setAmount('');
                             fetchWalletData();
+                            // Update local balance and Redux store immediately
+                            const newBalance = verifyRes.data.newBalance;
+                            setBalance(newBalance);
+                            dispatch(updateUser({ walletBalance: newBalance }));
                         }
                     } catch (err) {
                         alert('Payment Verification Failed!');
@@ -209,101 +314,116 @@ const Wallet = () => {
                     </div>
                 </div>
 
-                {/* Right Column: Transactions */}
-                <div className="xl:col-span-2 bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col h-full overflow-hidden">
-                    <div className="p-8 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">
-                        <div>
-                            <h3 className="font-bold text-gray-900 text-xl flex items-center">
-                                <History size={22} className="text-blue-500 mr-2" />
-                                Recent Transactions
-                            </h3>
-                            <p className="text-sm text-gray-500 mt-1">View your recent wallet activity.</p>
-                        </div>
+                {/* Manual Deposit Section (Below Add Funds) */}
+                <div className="bg-white rounded-3xl p-8 shadow-xl shadow-gray-200/50 border border-gray-100 relative overflow-hidden mt-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="font-bold text-xl text-gray-900 flex items-center">
+                            <span className="bg-purple-100 text-purple-600 p-2 rounded-lg mr-3">
+                                <ArrowDownLeft size={20} />
+                            </span>
+                            Manual Deposit
+                        </h3>
+                        <span className="text-xs font-bold text-gray-400 bg-gray-50 px-2 py-1 rounded-md border border-gray-100">UPI / Bank Transfer</span>
+                    </div>
+                    <ManualDepositForm onSuccess={fetchWalletData} />
+                </div>
+            </div>
 
-                        <div className="flex bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
-                            {['All', 'Credit', 'Debit'].map(f => (
-                                <button
-                                    key={f}
-                                    onClick={() => setFilter(f)}
-                                    className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${filter === f ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
-                                >
-                                    {f}
-                                </button>
-                            ))}
-                        </div>
+            {/* Right Column: Transactions */}
+            <div className="xl:col-span-2 bg-white rounded-3xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col h-full overflow-hidden">
+                <div className="p-8 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/30">
+                    <div>
+                        <h3 className="font-bold text-gray-900 text-xl flex items-center">
+                            <History size={22} className="text-blue-500 mr-2" />
+                            Recent Transactions
+                        </h3>
+                        <p className="text-sm text-gray-500 mt-1">View your recent wallet activity.</p>
                     </div>
 
-                    <div className="overflow-x-auto flex-1 h-[600px] overflow-y-auto custom-scrollbar p-2">
-                        <table className="w-full border-separate border-spacing-y-2">
-                            <thead className="bg-white text-xs text-gray-400 uppercase font-bold sticky top-0 z-10">
+                    <div className="flex bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
+                        {['All', 'Credit', 'Debit'].map(f => (
+                            <button
+                                key={f}
+                                onClick={() => setFilter(f)}
+                                className={`px-5 py-2 text-sm font-bold rounded-lg transition-all ${filter === f ? 'bg-gray-900 text-white shadow-md' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'}`}
+                            >
+                                {f}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto flex-1 h-[600px] overflow-y-auto custom-scrollbar p-2">
+                    <table className="w-full border-separate border-spacing-y-2">
+                        <thead className="bg-white text-xs text-gray-400 uppercase font-bold sticky top-0 z-10">
+                            <tr>
+                                <th className="px-6 py-4 text-left">Description</th>
+                                <th className="px-6 py-4 text-left">Date & Time</th>
+                                <th className="px-6 py-4 text-left">Reference ID</th>
+                                <th className="px-6 py-4 text-right">Amount</th>
+                                <th className="px-6 py-4 text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {filteredHistory.length === 0 ? (
                                 <tr>
-                                    <th className="px-6 py-4 text-left">Description</th>
-                                    <th className="px-6 py-4 text-left">Date & Time</th>
-                                    <th className="px-6 py-4 text-left">Reference ID</th>
-                                    <th className="px-6 py-4 text-right">Amount</th>
-                                    <th className="px-6 py-4 text-right">Balance</th>
+                                    <td colSpan="5" className="px-6 py-20 text-center">
+                                        <div className="flex flex-col items-center justify-center">
+                                            <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
+                                                <History size={32} />
+                                            </div>
+                                            <p className="text-gray-500 font-medium">No transactions found.</p>
+                                        </div>
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                {filteredHistory.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="5" className="px-6 py-20 text-center">
-                                            <div className="flex flex-col items-center justify-center">
-                                                <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-4 text-gray-300">
-                                                    <History size={32} />
+                            ) : (
+                                filteredHistory.map((txn, idx) => (
+                                    <motion.tr
+                                        key={txn._id}
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.05 }}
+                                        className="group hover:bg-blue-50/50 transition-colors"
+                                    >
+                                        <td className="px-6 py-4 bg-white border-y border-l border-gray-100 rounded-l-2xl group-hover:border-blue-100 group-hover:bg-blue-50/30">
+                                            <div className="flex items-center">
+                                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 shadow-sm ${txn.type === 'Credit' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
+                                                    {txn.type === 'Credit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
                                                 </div>
-                                                <p className="text-gray-500 font-medium">No transactions found.</p>
+                                                <div>
+                                                    <p className="text-sm font-bold text-gray-900 line-clamp-1">{txn.description}</p>
+                                                    <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${txn.status === 'Failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} mt-1 inline-block`}>
+                                                        {txn.status || 'Success'}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </td>
-                                    </tr>
-                                ) : (
-                                    filteredHistory.map((txn, idx) => (
-                                        <motion.tr
-                                            key={txn._id}
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: idx * 0.05 }}
-                                            className="group hover:bg-blue-50/50 transition-colors"
-                                        >
-                                            <td className="px-6 py-4 bg-white border-y border-l border-gray-100 rounded-l-2xl group-hover:border-blue-100 group-hover:bg-blue-50/30">
-                                                <div className="flex items-center">
-                                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 shadow-sm ${txn.type === 'Credit' ? 'bg-green-50 text-green-600 border border-green-100' : 'bg-red-50 text-red-600 border border-red-100'}`}>
-                                                        {txn.type === 'Credit' ? <ArrowDownLeft size={20} /> : <ArrowUpRight size={20} />}
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-sm font-bold text-gray-900 line-clamp-1">{txn.description}</p>
-                                                        <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded ${txn.status === 'Failed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} mt-1 inline-block`}>
-                                                            {txn.status || 'Success'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-semibold text-gray-700">{new Date(txn.createdAt).toLocaleDateString()}</span>
-                                                    <span className="text-xs text-gray-400 font-mono">{new Date(txn.createdAt).toLocaleTimeString()}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30">
-                                                <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
-                                                    {txn._id.slice(-8).toUpperCase()}
-                                                </span>
-                                            </td>
-                                            <td className={`px-6 py-4 text-right font-black text-sm bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30 ${txn.type === 'Credit' ? 'text-green-600' : 'text-gray-900'}`}>
-                                                {txn.type === 'Credit' ? '+' : '-'} ₹{txn.amount.toLocaleString()}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-sm text-gray-500 font-bold bg-white border-y border-r border-gray-100 rounded-r-2xl group-hover:border-blue-100 group-hover:bg-blue-50/30">
-                                                ₹{txn.balanceAfter ? txn.balanceAfter.toLocaleString() : '-'}
-                                            </td>
-                                        </motion.tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                        <td className="px-6 py-4 bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-semibold text-gray-700">{new Date(txn.createdAt).toLocaleDateString()}</span>
+                                                <span className="text-xs text-gray-400 font-mono">{new Date(txn.createdAt).toLocaleTimeString()}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30">
+                                            <span className="font-mono text-xs text-gray-500 bg-gray-50 px-2 py-1 rounded-md border border-gray-200">
+                                                {txn._id.slice(-8).toUpperCase()}
+                                            </span>
+                                        </td>
+                                        <td className={`px-6 py-4 text-right font-black text-sm bg-white border-y border-gray-100 group-hover:border-blue-100 group-hover:bg-blue-50/30 ${txn.type === 'Credit' ? 'text-green-600' : 'text-gray-900'}`}>
+                                            {txn.type === 'Credit' ? '+' : '-'} ₹{txn.amount.toLocaleString()}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm text-gray-500 font-bold bg-white border-y border-r border-gray-100 rounded-r-2xl group-hover:border-blue-100 group-hover:bg-blue-50/30">
+                                            ₹{txn.balanceAfter ? txn.balanceAfter.toLocaleString() : '-'}
+                                        </td>
+                                    </motion.tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
+
     );
 };
 
