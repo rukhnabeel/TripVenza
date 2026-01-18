@@ -134,13 +134,10 @@ const Register = () => {
             const { data } = await api.post('/auth/send-otp', { identifier, type: type === 'phone' ? 'mobile' : 'email' });
             setOtpState(prev => ({ ...prev, [type + 'Sent']: true }));
 
-            // For Dev/Demo/Fallback: Autofill the OTP
-            if (data.devOtp) {
-                // alert(`DEMO OTP for ${type}: ${data.devOtp}`);
-                setOtpState(prev => ({
-                    ...prev,
-                    [type + 'Otp']: data.devOtp
-                }));
+            // For Dev/Demo: Alert the OTP if returned (Mobile/Mock)
+            if (data.devOtp && type === 'phone') {
+                // Only autofill/alert for MOBILE (since we don't have SMS gateway yet)
+                alert(`DEMO OTP for Mobile: ${data.devOtp}`);
             }
 
             setError('');
@@ -175,9 +172,11 @@ const Register = () => {
                 setError('Please fill in all personal information fields.');
                 return;
             }
-            // TEMPORARY BYPASS: Allow registration without OTP verification
-            // if (!otpState.emailVerified) { setError('Please verify your Email Address.'); return; }
-            // if (!otpState.phoneVerified) { setError('Please verify your Mobile Number.'); return; }
+
+            // STRICT VALIDATION RESTORED
+            if (!otpState.emailVerified) { setError('Please verify your Email Address.'); return; }
+            if (!otpState.phoneVerified) { setError('Please verify your Mobile Number.'); return; }
+
             if (formData.password !== formData.confirmPassword) { setError('Passwords do not match.'); return; }
         }
 
