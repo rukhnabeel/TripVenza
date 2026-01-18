@@ -390,4 +390,54 @@ exports.resetPassword = async (req, res) => {
         console.error('Reset Password Error:', error);
         res.status(500).json({ message: error.message });
     }
+}
+};
+
+// @desc    Test SMTP Connection (Debug)
+// @route   GET /api/auth/test-smtp
+// @access  Public
+exports.testSmtp = async (req, res) => {
+    try {
+        const nodemailer = require('nodemailer');
+
+        const config = {
+            host: process.env.SMTP_HOST,
+            port: process.env.SMTP_PORT || 587,
+            secure: process.env.SMTP_PORT == 465, // true for 465
+            auth: {
+                user: process.env.SMTP_USER,
+                pass: process.env.SMTP_PASS // Passwords are hidden in logs usually
+            },
+            tls: { rejectUnauthorized: false },
+            connectionTimeout: 10000
+        };
+
+        const transporter = nodemailer.createTransport(config);
+
+        console.log('Testing SMTP from Server:', { ...config, auth: { ...config.auth, pass: '*****' } });
+
+        await transporter.verify();
+
+        res.json({
+            success: true,
+            message: '✅ SMTP Connection Successful! Hostinger/Titan is reachable.',
+            config: { ...config, auth: { user: config.auth.user, pass: '******' } }
+        });
+
+    } catch (error) {
+        console.error('SMTP Test Failed:', error);
+        res.status(500).json({
+            success: false,
+            message: '❌ SMTP Connection Failed',
+            error: error.message,
+            code: error.code,
+            details: 'This confirms the server (Render) cannot reach the Email Provider (Hostinger).',
+            config: {
+                host: process.env.SMTP_HOST,
+                port: process.env.SMTP_PORT,
+                user: process.env.SMTP_USER,
+                secure: process.env.SMTP_PORT == 465
+            }
+        });
+    }
 };
